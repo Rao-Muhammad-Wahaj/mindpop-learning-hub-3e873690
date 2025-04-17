@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Session } from '@supabase/supabase-js';
 
+// Update the type to match the allowed values
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
@@ -119,6 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             name: name,
+            // Explicitly set role for admin if needed
+            role: email === 'raowahaj323@gmail.com' ? 'admin' : 'student'
           },
         },
       });
@@ -161,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       value={{
         user,
         isLoading,
-        isAdmin: user?.role === 'admin',
+        isAdmin: user?.role === 'admin', // Ensure this matches the type in User interface
         login,
         signup,
         logout,
