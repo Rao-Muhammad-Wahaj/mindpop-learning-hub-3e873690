@@ -7,89 +7,79 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, BookOpen, FileCheck, Award, Plus, ArrowRight } from "lucide-react";
-
-// Mock data for admin dashboard
-const courseEnrollmentData = [
-  { name: "Mathematics", students: 42, quizzes: 5 },
-  { name: "Physics", students: 35, quizzes: 4 },
-  { name: "Biology", students: 28, quizzes: 3 },
-  { name: "Chemistry", students: 31, quizzes: 3 },
-  { name: "History", students: 24, quizzes: 2 },
-  { name: "Creative Writing", students: 29, quizzes: 2 },
-];
-
-const quizPerformanceData = [
-  { name: "Mathematics", average: 78 },
-  { name: "Physics", average: 72 },
-  { name: "Biology", average: 85 },
-  { name: "Chemistry", average: 68 },
-  { name: "History", average: 76 },
-  { name: "Creative Writing", average: 82 },
-];
-
-const studentActivityData = [
-  { name: "Mon", active: 24 },
-  { name: "Tue", active: 32 },
-  { name: "Wed", active: 41 },
-  { name: "Thu", active: 35 },
-  { name: "Fri", active: 28 },
-  { name: "Sat", active: 18 },
-  { name: "Sun", active: 15 },
-];
-
-const quizCompletionData = [
-  { name: "Completed", value: 158 },
-  { name: "Incomplete", value: 42 },
-];
+import { useCourses } from "@/providers/CoursesProvider";
+import { useQuizzes } from "@/providers/QuizzesProvider";
+import { useQuizAttempts } from "@/providers/QuizAttemptsProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 const COLORS = ['#9b87f5', '#E5DEFF'];
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    totalStudents: 0,
-    totalCourses: 0,
-    totalQuizzes: 0,
-    completionRate: 0,
-  });
+  const { courses } = useCourses();
+  const { quizzes } = useQuizzes();
+  const { attempts } = useQuizAttempts();
+  
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [recentActivity, setRecentActivity] = useState([
-    {
-      type: "enrollment",
-      user: "John Doe",
-      course: "Mathematics",
-      time: "2 hours ago"
-    },
-    {
-      type: "quiz_completed",
-      user: "Jane Smith",
-      quiz: "Basic Algebra",
-      score: 85,
-      time: "4 hours ago"
-    },
-    {
-      type: "course_added",
-      course: "Advanced Chemistry",
-      time: "1 day ago"
-    },
-    {
-      type: "quiz_added",
-      quiz: "Physics Mechanics",
-      course: "Physics",
-      time: "2 days ago"
-    }
-  ]);
-
+  // Fetch total students (profiles with role student)
   useEffect(() => {
-    // In a real app, this would fetch data from Supabase
-    // For demo, we'll use mock data
-    setStats({
-      totalStudents: 138,
-      totalCourses: 6,
-      totalQuizzes: 19,
-      completionRate: 79,
-    });
+    const fetchTotalStudents = async () => {
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'student');
+
+      if (!error) {
+        setTotalStudents(count || 0);
+      }
+      setIsLoading(false);
+    };
+
+    fetchTotalStudents();
   }, []);
 
+  // Prepare data for charts
+  const courseEnrollmentData = courses.map(course => ({
+    name: course.title,
+    students: 0, // Would need an enrollment table to get actual numbers
+    quizzes: quizzes.filter(quiz => quiz.courseId === course.id).length
+  }));
+
+  const quizPerformanceData = quizzes.map(quiz => {
+    const quizAttempts = attempts.filter(attempt => attempt.quizId === quiz.id);
+    const averageScore = quizAttempts.length > 0 
+      ? quizAttempts.reduce((sum, attempt) => sum + (attempt.score / attempt.maxScore) * 100, 0) / quizAttempts.length 
+      : 0;
+    
+    return {
+      name: quiz.title,
+      average: Math.round(averageScore)
+    };
+  });
+
+  // Mock data for student activity (would need to implement tracking)
+  const studentActivityData = [
+    { name: "Mon", active: 0 },
+    { name: "Tue", active: 0 },
+    { name: "Wed", active: 0 },
+    { name: "Thu", active: 0 },
+    { name: "Fri", active: 0 },
+    { name: "Sat", active: 0 },
+    { name: "Sun", active: 0 },
+  ];
+
+  // Calculate quiz completion data
+  const completedAttempts = attempts.filter(attempt => attempt.completedAt).length;
+  const incompleteAttempts = attempts.filter(attempt => !attempt.completedAt).length;
+  
+  const quizCompletionData = [
+    { name: "Completed", value: completedAttempts },
+    { name: "Incomplete", value: incompleteAttempts },
+  ];
+
+  // Animation
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -118,7 +108,7 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="mt-4 md:mt-0 flex flex-wrap gap-3">
-          <Link to="/admin/courses/new">
+          <Link to="/admin/courses">
             <Button className="flex items-center">
               <Plus className="mr-2 h-4 w-4" /> New Course
             </Button>
@@ -147,7 +137,7 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="flex items-center">
                 <Users className="w-5 h-5 text-mindpop-400 mr-2" />
-                <div className="text-2xl font-bold">{stats.totalStudents}</div>
+                <div className="text-2xl font-bold">{totalStudents}</div>
               </div>
             </CardContent>
           </Card>
@@ -163,7 +153,7 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="flex items-center">
                 <BookOpen className="w-5 h-5 text-mindpop-400 mr-2" />
-                <div className="text-2xl font-bold">{stats.totalCourses}</div>
+                <div className="text-2xl font-bold">{courses.length}</div>
               </div>
             </CardContent>
           </Card>
@@ -179,7 +169,7 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="flex items-center">
                 <FileCheck className="w-5 h-5 text-mindpop-400 mr-2" />
-                <div className="text-2xl font-bold">{stats.totalQuizzes}</div>
+                <div className="text-2xl font-bold">{quizzes.length}</div>
               </div>
             </CardContent>
           </Card>
@@ -195,7 +185,11 @@ export default function AdminDashboard() {
             <CardContent>
               <div className="flex items-center">
                 <Award className="w-5 h-5 text-mindpop-400 mr-2" />
-                <div className="text-2xl font-bold">{stats.completionRate}%</div>
+                <div className="text-2xl font-bold">
+                  {attempts.length > 0 
+                    ? Math.round((completedAttempts / attempts.length) * 100)
+                    : 0}%
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -217,20 +211,26 @@ export default function AdminDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={courseEnrollmentData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="students" fill="#9b87f5" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {courses.length > 0 ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={courseEnrollmentData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="students" fill="#9b87f5" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center text-muted-foreground">
+                  No course data available. Create courses to see enrollment statistics.
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -249,27 +249,33 @@ export default function AdminDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80 flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={quizCompletionData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {quizCompletionData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
+              {attempts.length > 0 ? (
+                <div className="h-80 flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={quizCompletionData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      >
+                        {quizCompletionData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center text-muted-foreground">
+                  No quiz attempts yet. Students need to take quizzes to see completion data.
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -322,64 +328,19 @@ export default function AdminDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="border-b border-gray-200 dark:border-gray-700 pb-3 last:border-0 last:pb-0">
-                    {activity.type === "enrollment" && (
-                      <div>
-                        <p className="text-sm font-medium">
-                          {activity.user} enrolled in {activity.course}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {activity.time}
-                        </p>
-                      </div>
-                    )}
-                    {activity.type === "quiz_completed" && (
-                      <div>
-                        <p className="text-sm font-medium">
-                          {activity.user} completed {activity.quiz}
-                        </p>
-                        <div className="flex items-center mt-1">
-                          <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                            Score: {activity.score}%
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                            {activity.time}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                    {activity.type === "course_added" && (
-                      <div>
-                        <p className="text-sm font-medium">
-                          New course added: {activity.course}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {activity.time}
-                        </p>
-                      </div>
-                    )}
-                    {activity.type === "quiz_added" && (
-                      <div>
-                        <p className="text-sm font-medium">
-                          New quiz added to {activity.course}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {activity.quiz} · {activity.time}
-                        </p>
-                      </div>
-                    )}
+              {attempts.length > 0 ? (
+                <div className="space-y-4">
+                  {/* This would be replaced with actual activity data */}
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">Activity tracking will be implemented in a future update.</p>
                   </div>
-                ))}
-              </div>
-              <div className="mt-4 text-right">
-                <Link to="/admin/activity">
-                  <Button variant="ghost" size="sm" className="text-mindpop-400 hover:text-mindpop-500 dark:text-mindpop-300 hover:dark:text-mindpop-200">
-                    View all <ArrowRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </Link>
-              </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No recent activity to display.</p>
+                  <p className="text-sm text-muted-foreground mt-1">Activity will appear here as users interact with the platform.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </motion.div>
@@ -400,20 +361,26 @@ export default function AdminDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={quizPerformanceData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis domain={[0, 100]} />
-                    <Tooltip />
-                    <Bar dataKey="average" fill="#6E59A5" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {quizPerformanceData.length > 0 ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={quizPerformanceData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis domain={[0, 100]} />
+                      <Tooltip />
+                      <Bar dataKey="average" fill="#6E59A5" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center text-muted-foreground">
+                  No quiz performance data available. Students need to complete quizzes to see performance metrics.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -427,20 +394,26 @@ export default function AdminDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={courseEnrollmentData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="quizzes" fill="#D6BCFA" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {courseEnrollmentData.length > 0 ? (
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={courseEnrollmentData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Bar dataKey="quizzes" fill="#D6BCFA" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center text-muted-foreground">
+                  No course metrics available. Create courses and quizzes to see data.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

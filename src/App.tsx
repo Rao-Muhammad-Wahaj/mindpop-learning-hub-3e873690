@@ -5,6 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
+import { CoursesProvider } from "@/providers/CoursesProvider";
+import { QuizzesProvider } from "@/providers/QuizzesProvider";
+import { QuestionsProvider } from "@/providers/QuestionsProvider";
+import { QuizAttemptsProvider } from "@/providers/QuizAttemptsProvider";
 
 // Layouts
 import { AuthLayout } from "@/layouts/auth-layout";
@@ -27,39 +31,47 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
-      <TooltipProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Public routes */}
-            <Route element={<MainLayout />}>
-              <Route path="/" element={<HomePage />} />
-            </Route>
+      <CoursesProvider>
+        <QuizzesProvider>
+          <QuestionsProvider>
+            <QuizAttemptsProvider>
+              <TooltipProvider>
+                <BrowserRouter>
+                  <Routes>
+                    {/* Public routes */}
+                    <Route element={<MainLayout />}>
+                      <Route path="/" element={<HomePage />} />
+                    </Route>
 
-            {/* Auth routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
-            </Route>
+                    {/* Auth routes */}
+                    <Route element={<AuthLayout />}>
+                      <Route path="/login" element={<LoginPage />} />
+                      <Route path="/register" element={<RegisterPage />} />
+                    </Route>
 
-            {/* Student routes */}
-            <Route element={<DashboardLayout />}>
-              <Route path="/dashboard" element={<StudentDashboard />} />
-              <Route path="/courses" element={<CoursesPage />} />
-            </Route>
+                    {/* Student routes */}
+                    <Route element={<DashboardLayout />}>
+                      <Route path="/dashboard" element={<StudentDashboard />} />
+                      <Route path="/courses" element={<CoursesPage />} />
+                    </Route>
 
-            {/* Admin routes */}
-            <Route element={<AdminLayout />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/courses" element={<AdminCoursesPage />} />
-            </Route>
+                    {/* Admin routes */}
+                    <Route element={<AdminLayout />}>
+                      <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                      <Route path="/admin/courses" element={<AdminCoursesPage />} />
+                    </Route>
 
-            {/* Catch-all route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Toaster />
-          <Sonner />
-        </BrowserRouter>
-      </TooltipProvider>
+                    {/* Catch-all route */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                  <Toaster />
+                  <Sonner />
+                </BrowserRouter>
+              </TooltipProvider>
+            </QuizAttemptsProvider>
+          </QuestionsProvider>
+        </QuizzesProvider>
+      </CoursesProvider>
     </AuthProvider>
   </QueryClientProvider>
 );

@@ -68,10 +68,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       if (data) {
+        // Ensure role is one of the allowed values
+        const role = data.role === 'admin' ? 'admin' : 'student';
+        
         setUser({
           id: userId,
           email: session?.user?.email || '',
-          role: data.role,
+          role: role as 'admin' | 'student', // Cast to the specific union type
           name: data.name,
           avatar: data.avatar,
           createdAt: data.created_at,

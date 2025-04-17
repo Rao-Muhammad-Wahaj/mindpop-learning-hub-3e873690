@@ -1,129 +1,55 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Course } from "@/types";
 import { motion } from "framer-motion";
 import { Search, Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useCourses } from "@/providers/CoursesProvider";
+import { useQuizzes } from "@/providers/QuizzesProvider";
 
-// Mock data for courses
-const mockCourses: Course[] = [
-  {
-    id: "1",
-    title: "Introduction to Mathematics",
-    description: "Learn fundamental mathematical concepts and problem-solving techniques. This course covers arithmetic, algebra, geometry, and statistics to build a strong foundation in mathematics.",
-    imageUrl: "https://images.unsplash.com/photo-1509228468518-180dd4864904",
-    createdBy: "1", // Admin ID
-    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    enrolledCount: 42,
-  },
-  {
-    id: "2",
-    title: "Basic Physics",
-    description: "Understand the fundamental laws that govern our physical world. Explore mechanics, thermodynamics, waves, and modern physics concepts through interactive lessons and experiments.",
-    imageUrl: "https://images.unsplash.com/photo-1636466497217-26a8cbeaf0aa",
-    createdBy: "1", // Admin ID
-    createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    enrolledCount: 35,
-  },
-  {
-    id: "3",
-    title: "Advanced Biology",
-    description: "Explore complex biological systems and their functions. This course delves into cellular processes, genetics, evolution, and ecosystems through detailed lessons and virtual labs.",
-    imageUrl: "https://images.unsplash.com/photo-1530026454774-5333ea7c057c",
-    createdBy: "1", // Admin ID
-    createdAt: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-    enrolledCount: 28,
-  },
-  {
-    id: "4",
-    title: "Chemistry Fundamentals",
-    description: "Master the basic principles of chemistry, including atomic structure, periodic trends, chemical reactions, and stoichiometry through engaging lessons and virtual experiments.",
-    imageUrl: "https://images.unsplash.com/photo-1603126857599-f6e157fa2fe6",
-    createdBy: "1", // Admin ID
-    createdAt: new Date(Date.now() - 75 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(),
-    enrolledCount: 31,
-  },
-  {
-    id: "5",
-    title: "World History Survey",
-    description: "Journey through key moments in human history, from ancient civilizations to modern times. Explore cultural developments, conflicts, and innovations that shaped our world.",
-    imageUrl: "https://images.unsplash.com/photo-1447069387593-a5de0862481e",
-    createdBy: "1", // Admin ID
-    createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
-    enrolledCount: 24,
-  },
-  {
-    id: "6",
-    title: "Creative Writing",
-    description: "Develop your storytelling and creative expression skills through structured writing exercises. Learn techniques for crafting compelling narratives, characters, and dialogue.",
-    imageUrl: "https://images.unsplash.com/photo-1455390582262-044cdead277a",
-    createdBy: "1", // Admin ID
-    createdAt: new Date(Date.now() - 105 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    enrolledCount: 29,
-  },
-];
-
-// Mock categories for filtering
-const categories = [
-  "Science",
-  "Mathematics",
-  "History",
-  "Language Arts",
-  "Computer Science",
-  "Art",
-];
+// Define course categories dynamically based on title keywords
+const getCourseCategory = (title: string): string => {
+  const titleLower = title.toLowerCase();
+  if (titleLower.includes("math")) return "Mathematics";
+  if (titleLower.includes("physics") || titleLower.includes("chemistry") || titleLower.includes("biology")) return "Science";
+  if (titleLower.includes("history")) return "History";
+  if (titleLower.includes("writing") || titleLower.includes("literature") || titleLower.includes("english")) return "Language Arts";
+  if (titleLower.includes("computer") || titleLower.includes("programming") || titleLower.includes("code")) return "Computer Science";
+  if (titleLower.includes("art") || titleLower.includes("design") || titleLower.includes("music")) return "Art";
+  return "Other";
+};
 
 export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const { courses, isLoading } = useCourses();
+  const { quizzes } = useQuizzes();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // In a real app, this would fetch from Supabase
-    const fetchCourses = async () => {
-      setIsLoading(true);
-      try {
-        // Simulate API delay
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        setCourses(mockCourses);
-      } catch (error) {
-        console.error("Error fetching courses:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchCourses();
-  }, []);
+  // Extract all possible categories from the courses
+  const allCategories = [...new Set(courses.map(course => getCourseCategory(course.title)))].sort();
+  
+  // Display a set of default categories if no courses are available yet
+  const categories = allCategories.length > 0 ? allCategories : [
+    "Science", "Mathematics", "History", "Language Arts", "Computer Science", "Art"
+  ];
 
   const filteredCourses = courses.filter((course) => {
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          course.description.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // For demo purposes, we'll assign categories based on course title
-    const courseCategory = 
-      course.title.includes("Mathematics") ? "Mathematics" :
-      course.title.includes("Physics") ? "Science" :
-      course.title.includes("Biology") ? "Science" :
-      course.title.includes("Chemistry") ? "Science" :
-      course.title.includes("History") ? "History" :
-      course.title.includes("Writing") ? "Language Arts" : "Other";
-    
+    const courseCategory = getCourseCategory(course.title);
     const matchesCategory = !selectedCategory || courseCategory === selectedCategory;
     
     return matchesSearch && matchesCategory;
   });
+
+  // Get quiz count for a course
+  const getQuizCount = (courseId: string) => {
+    return quizzes.filter(quiz => quiz.courseId === courseId).length;
+  };
 
   // Framer Motion variants
   const containerVariants = {
@@ -251,7 +177,7 @@ export default function CoursesPage() {
                 <CardHeader>
                   <CardTitle>{course.title}</CardTitle>
                   <CardDescription>
-                    {new Date(course.createdAt).toLocaleDateString()} · {course.enrolledCount} students
+                    {new Date(course.createdAt).toLocaleDateString()} · {getQuizCount(course.id)} quizzes
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="flex-grow">
@@ -276,7 +202,9 @@ export default function CoursesPage() {
             No courses found
           </h3>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Try adjusting your search or filter criteria.
+            {searchQuery || selectedCategory 
+              ? "Try adjusting your search or filter criteria."
+              : "No courses have been created yet."}
           </p>
           <Button onClick={() => { setSearchQuery(""); setSelectedCategory(null); }}>
             Clear Filters
