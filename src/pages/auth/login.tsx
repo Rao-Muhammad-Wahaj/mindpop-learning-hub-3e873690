@@ -1,11 +1,12 @@
 
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -14,6 +15,8 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +31,13 @@ export default function LoginPage() {
     
     try {
       const success = await login(email, password);
-      if (!success) {
+      if (success) {
+        // Authentication is successful, the redirect will be handled by AuthLayout
+        toast({
+          title: "Login successful",
+          description: "Welcome back to MindPop!",
+        });
+      } else {
         setError("Invalid email or password");
       }
     } catch (err) {
@@ -142,16 +151,6 @@ export default function LoginPage() {
             }}
           >
             Admin: raowahaj323@gmail.com / admin123
-          </button>
-          <button
-            type="button"
-            className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-            onClick={() => {
-              setEmail("student@example.com");
-              setPassword("password");
-            }}
-          >
-            Student: student@example.com / password
           </button>
         </div>
       </div>

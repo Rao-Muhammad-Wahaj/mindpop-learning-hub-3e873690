@@ -1,6 +1,9 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -8,69 +11,97 @@ interface AuthContextType {
   isAdmin: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   signup: (email: string, password: string, name: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock admin credentials
-const ADMIN_EMAIL = 'raowahaj323@gmail.com';
-const ADMIN_PASSWORD = 'admin123';
-
-// Mock users for demo purposes
-const mockUsers: User[] = [
-  {
-    id: '1',
-    email: ADMIN_EMAIL,
-    role: 'admin',
-    name: 'Admin User',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    email: 'student@example.com',
-    role: 'student',
-    name: 'Test Student',
-    createdAt: new Date().toISOString(),
-  }
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Check for existing session in localStorage (for demo purposes)
-    const storedUser = localStorage.getItem('mindpop_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    // Set up auth state listener first
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        console.log('Auth state changed:', event, session);
+        setSession(session);
+        if (session?.user) {
+          // Fetch user profile when session changes
+          fetchUserProfile(session.user.id);
+        } else {
+          setUser(null);
+        }
+      }
+    );
+
+    // Then check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching profile:', error);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (data) {
+        setUser({
+          id: userId,
+          email: session?.user?.email || '',
+          role: data.role,
+          name: data.name,
+          avatar: data.avatar,
+          createdAt: data.created_at,
+        });
+      }
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // In a real implementation, this would call Supabase auth
-      // For demo, we'll just use our mock data
-      if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-        // Admin login
-        const adminUser = mockUsers.find(u => u.email === ADMIN_EMAIL);
-        if (adminUser) {
-          setUser(adminUser);
-          localStorage.setItem('mindpop_user', JSON.stringify(adminUser));
-          return true;
-        }
-      } else {
-        // Student login logic (simplified for demo)
-        const foundUser = mockUsers.find(u => u.email === email);
-        if (foundUser) {
-          setUser(foundUser);
-          localStorage.setItem('mindpop_user', JSON.stringify(foundUser));
-          return true;
-        }
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error.message);
+        toast({
+          title: "Login failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return false;
       }
-      return false;
+
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -82,25 +113,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signup = async (email: string, password: string, name: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // In a real implementation, this would call Supabase auth
-      // For demo, we'll just create a mock user
-      const existingUser = mockUsers.find(u => u.email === email);
-      if (existingUser) {
-        return false; // User already exists
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          },
+        },
+      });
+
+      if (error) {
+        console.error('Signup error:', error.message);
+        toast({
+          title: "Signup failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return false;
       }
 
-      const newUser: User = {
-        id: `student_${Date.now()}`,
-        email,
-        role: 'student',
-        name,
-        createdAt: new Date().toISOString(),
-      };
+      toast({
+        title: "Account created successfully",
+        description: "Welcome to MindPop! You can now log in.",
+      });
       
-      // In a real app, this would be added to the database
-      // For demo, we just set it as the current user
-      setUser(newUser);
-      localStorage.setItem('mindpop_user', JSON.stringify(newUser));
       return true;
     } catch (error) {
       console.error('Signup error:', error);
@@ -110,9 +147,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('mindpop_user');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (
