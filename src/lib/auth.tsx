@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({
           id: userId,
           email: session?.user?.email || '',
-          role: data.role,
+          role: data.role as 'admin' | 'student', // Fix for TypeScript error
           name: data.name,
           avatar: data.avatar,
           createdAt: data.created_at,
@@ -86,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
+      console.log(`Attempting login with email: ${email}`);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -101,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
+      console.log('Login successful:', data);
       return true;
     } catch (error) {
       console.error('Login error:', error);

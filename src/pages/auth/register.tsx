@@ -47,6 +47,10 @@ export default function RegisterPage() {
     try {
       const success = await signup(email, password, name);
       if (success) {
+        toast({
+          title: "Account created successfully",
+          description: "You can now sign in with your credentials.",
+        });
         // On successful signup, redirect to login page
         navigate("/login");
       }

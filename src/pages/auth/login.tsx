@@ -47,6 +47,34 @@ export default function LoginPage() {
       setIsSubmitting(false);
     }
   };
+
+  const loginAsAdmin = async () => {
+    setEmail("raowahaj323@gmail.com");
+    setPassword("admin123");
+    
+    setIsSubmitting(true);
+    try {
+      const success = await login("raowahaj323@gmail.com", "admin123");
+      if (success) {
+        toast({
+          title: "Admin Login successful",
+          description: "Welcome back, Admin!",
+        });
+      } else {
+        setError("Admin login failed. The admin account might not be set up yet.");
+        toast({
+          title: "Admin Login Failed",
+          description: "Please make sure the admin account exists in Supabase.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      console.error(err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   
   return (
     <div className="animate-fade-in">
@@ -142,16 +170,18 @@ export default function LoginPage() {
         </div>
         
         <div className="mt-4 grid gap-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded-md text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-            onClick={() => {
-              setEmail("raowahaj323@gmail.com");
-              setPassword("admin123");
-            }}
+            onClick={loginAsAdmin}
+            disabled={isSubmitting}
           >
+            Login as Admin
+          </Button>
+          <div className="text-xs text-center text-gray-500 dark:text-gray-400">
             Admin: raowahaj323@gmail.com / admin123
-          </button>
+          </div>
         </div>
       </div>
     </div>
