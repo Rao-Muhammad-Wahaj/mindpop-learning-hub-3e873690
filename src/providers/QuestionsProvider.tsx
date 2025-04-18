@@ -38,7 +38,7 @@ export function QuestionsProvider({ children }: { children: ReactNode }) {
         quizId: question.quiz_id,
         text: question.text,
         type: question.type as 'multiple_choice' | 'true_false' | 'short_answer',
-        options: question.options,
+        options: question.options ? Array.isArray(question.options) ? question.options : [] : [],
         correctAnswer: question.correct_answer,
         points: question.points
       }));
@@ -75,7 +75,7 @@ export function QuestionsProvider({ children }: { children: ReactNode }) {
         quizId: data.quiz_id,
         text: data.text,
         type: data.type as 'multiple_choice' | 'true_false' | 'short_answer',
-        options: data.options,
+        options: data.options ? Array.isArray(data.options) ? data.options : [] : [],
         correctAnswer: data.correct_answer,
         points: data.points
       };
@@ -121,7 +121,7 @@ export function QuestionsProvider({ children }: { children: ReactNode }) {
         quizId: data.quiz_id,
         text: data.text,
         type: data.type as 'multiple_choice' | 'true_false' | 'short_answer',
-        options: data.options,
+        options: data.options ? Array.isArray(data.options) ? data.options : [] : [],
         correctAnswer: data.correct_answer,
         points: data.points
       };

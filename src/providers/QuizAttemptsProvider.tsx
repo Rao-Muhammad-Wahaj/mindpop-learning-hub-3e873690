@@ -46,7 +46,15 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
         completedAt: attempt.completed_at,
         score: attempt.score || 0,
         maxScore: attempt.max_score || 0,
-        answers: attempt.answers || []
+        answers: attempt.answers ? 
+          Array.isArray(attempt.answers) ? 
+            attempt.answers.map((ans: any) => ({
+              questionId: ans.questionId || ans.question_id,
+              answer: ans.answer,
+              isCorrect: ans.isCorrect || ans.is_correct
+            })) : 
+            [] : 
+          []
       }));
     },
     enabled: !!user,
@@ -89,7 +97,13 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
         completedAt: data.completed_at,
         score: data.score || 0,
         maxScore: data.max_score || 0,
-        answers: data.answers || []
+        answers: Array.isArray(data.answers) ? 
+          data.answers.map((ans: any) => ({
+            questionId: ans.questionId || ans.question_id,
+            answer: ans.answer,
+            isCorrect: ans.isCorrect || ans.is_correct
+          })) : 
+          []
       };
     },
     onSuccess: () => {
@@ -107,13 +121,20 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
   // Complete an attempt
   const completeAttemptMutation = useMutation({
     mutationFn: async ({ id, score, maxScore, answers }: { id: string; score: number; maxScore: number; answers: QuizAttempt['answers'] }) => {
+      // Ensure answers are in the correct format for Supabase
+      const formattedAnswers = answers.map(ans => ({
+        questionId: ans.questionId,
+        answer: ans.answer,
+        isCorrect: ans.isCorrect
+      }));
+
       const { data, error } = await supabase
         .from('quiz_attempts')
         .update({
           completed_at: new Date().toISOString(),
           score,
           max_score: maxScore,
-          answers
+          answers: formattedAnswers
         })
         .eq('id', id)
         .select()
@@ -131,7 +152,13 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
         completedAt: data.completed_at,
         score: data.score || 0,
         maxScore: data.max_score || 0,
-        answers: data.answers || []
+        answers: Array.isArray(data.answers) ? 
+          data.answers.map((ans: any) => ({
+            questionId: ans.questionId || ans.question_id,
+            answer: ans.answer,
+            isCorrect: ans.isCorrect || ans.is_correct
+          })) : 
+          []
       };
     },
     onSuccess: () => {

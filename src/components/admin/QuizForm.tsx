@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,8 @@ export function QuizForm({ initialData, onSuccess, courseId }: QuizFormProps) {
   const { createQuiz, updateQuiz } = useQuizzes();
   const { courses } = useCourses();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [savedQuiz, setSavedQuiz] = useState<Quiz | null>(null);
+  const navigate = useNavigate();
 
   const defaultValues: Partial<QuizFormValues> = {
     title: initialData?.title || '',
@@ -66,16 +69,20 @@ export function QuizForm({ initialData, onSuccess, courseId }: QuizFormProps) {
     try {
       if (initialData) {
         // Update existing quiz
-        await updateQuiz(initialData.id, {
+        const updated = await updateQuiz(initialData.id, {
           title: data.title,
           description: data.description,
           timeLimit: data.timeLimit,
           passingScore: data.passingScore,
           reviewEnabled: data.reviewEnabled,
         });
+        
+        if (updated) {
+          setSavedQuiz(updated);
+        }
       } else {
         // Create new quiz
-        await createQuiz({
+        const created = await createQuiz({
           title: data.title,
           description: data.description,
           courseId: data.courseId,
@@ -83,6 +90,10 @@ export function QuizForm({ initialData, onSuccess, courseId }: QuizFormProps) {
           passingScore: data.passingScore,
           reviewEnabled: data.reviewEnabled,
         });
+        
+        if (created) {
+          setSavedQuiz(created);
+        }
         
         // Reset form if not in edit mode and if courseId is not provided (not in course context)
         if (!courseId) {
@@ -107,6 +118,14 @@ export function QuizForm({ initialData, onSuccess, courseId }: QuizFormProps) {
       console.error('Error saving quiz:', error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAddQuestions = () => {
+    if (savedQuiz) {
+      navigate(`/admin/quizzes/${savedQuiz.id}/questions`);
+    } else if (initialData) {
+      navigate(`/admin/quizzes/${initialData.id}/questions`);
     }
   };
 
@@ -240,7 +259,16 @@ export function QuizForm({ initialData, onSuccess, courseId }: QuizFormProps) {
           )}
         />
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {(savedQuiz || initialData) && (
+            <Button 
+              type="button" 
+              variant="outline"
+              onClick={handleAddQuestions}
+            >
+              Add Questions
+            </Button>
+          )}
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Saving...' : initialData ? 'Update Quiz' : 'Create Quiz'}
           </Button>

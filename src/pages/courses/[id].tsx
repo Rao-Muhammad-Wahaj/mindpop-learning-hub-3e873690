@@ -1,64 +1,34 @@
 
 import { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Book, Users, Calendar, Clock, FileCheck, ArrowRight } from "lucide-react";
-import { Course, Quiz } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
-
-// Mock course data
-const mockCourses: Course[] = [
-  {
-    id: "1",
-    title: "Introduction to Mathematics",
-    description: "Learn fundamental mathematical concepts and problem-solving techniques. This course covers arithmetic, algebra, geometry, and statistics to build a strong foundation in mathematics.",
-    imageUrl: "https://images.unsplash.com/photo-1509228468518-180dd4864904",
-    createdBy: "1", // Admin ID
-    createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    enrolledCount: 42,
-  },
-];
-
-// Mock quiz data
-const mockQuizzes: Quiz[] = [
-  {
-    id: "q1",
-    courseId: "1",
-    title: "Basic Algebra Quiz",
-    description: "Test your knowledge of basic algebraic concepts.",
-    timeLimit: 15, // in minutes
-    passingScore: 70, // percentage
-    createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-    reviewEnabled: true,
-  },
-  {
-    id: "q2",
-    courseId: "1",
-    title: "Geometry Fundamentals",
-    description: "Assess your understanding of geometric principles and formulas.",
-    timeLimit: 20, // in minutes
-    passingScore: 65, // percentage
-    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
-    updatedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    reviewEnabled: true,
-  },
-];
+import { useToast } from "@/hooks/use-toast";
+import { useCourses } from "@/providers/CoursesProvider";
+import { useQuizzes } from "@/providers/QuizzesProvider";
+import { useQuizAttempts } from "@/providers/QuizAttemptsProvider";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { courses } = useCourses();
+  const { quizzes } = useQuizzes();
+  const { attempts, hasAttemptedQuiz } = useQuizAttempts();
   
-  const [course, setCourse] = useState<Course | null>(null);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [course, setCourse] = useState<any>(null);
+  const [courseQuizzes, setCourseQuizzes] = useState<any[]>([]);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [enrollmentLoading, setEnrollmentLoading] = useState(false);
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -66,25 +36,45 @@ export default function CourseDetailPage() {
       setError(null);
       
       try {
-        // In a real app, this would fetch from Supabase
-        // For demo, we'll use mock data
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const foundCourse = mockCourses.find(c => c.id === id);
-        if (foundCourse) {
-          setCourse(foundCourse);
-          
-          // Get quizzes for this course
-          const courseQuizzes = mockQuizzes.filter(q => q.courseId === id);
-          setQuizzes(courseQuizzes);
-          
-          // Check if user is enrolled (for demo, we'll assume yes if id is "1")
-          if (id === "1") {
-            setIsEnrolled(true);
-            setProgress(75); // Mock progress percentage
-          }
-        } else {
+        // Find course in our provider data
+        if (!id) {
+          setError("Missing course ID");
+          return;
+        }
+
+        // Get course
+        const foundCourse = courses.find(c => c.id === id);
+        if (!foundCourse) {
           setError("Course not found");
+          return;
+        }
+        
+        setCourse(foundCourse);
+          
+        // Get quizzes for this course
+        const courseQuizzes = quizzes.filter(q => q.courseId === id);
+        setCourseQuizzes(courseQuizzes);
+        
+        // Check if user is enrolled
+        if (user) {
+          const { data, error } = await supabase
+            .from('enrollments')
+            .select('*')
+            .eq('course_id', id)
+            .eq('user_id', user.id)
+            .single();
+          
+          if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+            console.error("Error checking enrollment:", error);
+          }
+          
+          if (data) {
+            setIsEnrolled(true);
+            setProgress(data.progress);
+          } else {
+            setIsEnrolled(false);
+            setProgress(0);
+          }
         }
       } catch (error) {
         console.error("Error fetching course data:", error);
@@ -94,15 +84,59 @@ export default function CourseDetailPage() {
       }
     };
 
-    if (id) {
-      fetchCourseData();
-    }
-  }, [id]);
+    fetchCourseData();
+  }, [id, courses, quizzes, user, attempts]);
 
   const handleEnroll = async () => {
-    // In a real app, this would call Supabase to enroll the user
-    setIsEnrolled(true);
-    setProgress(0);
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to enroll in this course",
+        variant: "destructive",
+      });
+      navigate("/login");
+      return;
+    }
+
+    setEnrollmentLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('enrollments')
+        .insert({
+          course_id: id,
+          user_id: user.id,
+          progress: 0,
+          completed_quizzes: []
+        })
+        .select();
+      
+      if (error) {
+        console.error("Error enrolling in course:", error);
+        toast({
+          title: "Enrollment failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setIsEnrolled(true);
+      setProgress(0);
+      
+      toast({
+        title: "Enrolled successfully",
+        description: `You've been enrolled in ${course.title}`,
+      });
+    } catch (error: any) {
+      console.error("Error enrolling in course:", error);
+      toast({
+        title: "Enrollment failed",
+        description: error.message || "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setEnrollmentLoading(false);
+    }
   };
 
   const containerVariants = {
@@ -148,6 +182,14 @@ export default function CourseDetailPage() {
     );
   }
 
+  // Calculate completion percentage based on attempted quizzes
+  const calculateCompletionPercentage = () => {
+    if (courseQuizzes.length === 0) return 0;
+    
+    const attemptedQuizzes = courseQuizzes.filter(quiz => hasAttemptedQuiz(quiz.id));
+    return Math.round((attemptedQuizzes.length / courseQuizzes.length) * 100);
+  };
+
   return (
     <div className="py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
       <motion.div
@@ -174,9 +216,9 @@ export default function CourseDetailPage() {
                   <div className="mt-4">
                     <div className="flex justify-between text-white mb-1">
                       <span className="text-sm font-medium">Your Progress</span>
-                      <span className="text-sm font-medium">{progress}%</span>
+                      <span className="text-sm font-medium">{calculateCompletionPercentage()}%</span>
                     </div>
-                    <Progress value={progress} className="h-2 bg-white/20" />
+                    <Progress value={calculateCompletionPercentage()} className="h-2 bg-white/20" />
                   </div>
                 )}
               </div>
@@ -201,36 +243,68 @@ export default function CourseDetailPage() {
                   Quizzes
                 </h2>
                 
-                {quizzes.length > 0 ? (
+                {courseQuizzes.length > 0 ? (
                   <div className="space-y-4">
-                    {quizzes.map((quiz) => (
-                      <Card key={quiz.id} className="hover:shadow-md transition-shadow">
-                        <CardHeader>
-                          <CardTitle>{quiz.title}</CardTitle>
-                          <CardDescription>
-                            {quiz.timeLimit} minutes · Passing Score: {quiz.passingScore}%
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            {quiz.description}
-                          </p>
-                        </CardContent>
-                        <CardFooter>
-                          {isEnrolled ? (
-                            <Link to={`/quiz/${quiz.id}/attempt`} className="w-full">
-                              <Button variant="default" className="w-full">
-                                Start Quiz <ArrowRight className="ml-2 h-4 w-4" />
+                    {courseQuizzes.map((quiz) => {
+                      const attempted = hasAttemptedQuiz(quiz.id);
+                      const quizAttempt = attempts.find(a => a.quizId === quiz.id);
+                      const score = quizAttempt?.score || 0;
+                      const maxScore = quizAttempt?.maxScore || 1;
+                      const scorePercentage = Math.round((score / maxScore) * 100);
+                      
+                      return (
+                        <Card key={quiz.id} className="hover:shadow-md transition-shadow">
+                          <CardHeader>
+                            <CardTitle>{quiz.title}</CardTitle>
+                            <CardDescription>
+                              {quiz.timeLimit ? `${quiz.timeLimit} minutes · ` : ''}
+                              {quiz.passingScore ? `Passing Score: ${quiz.passingScore}%` : 'No passing score set'}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {quiz.description}
+                            </p>
+                            
+                            {attempted && (
+                              <div className="mt-4">
+                                <div className="flex justify-between mb-1">
+                                  <span className="text-sm font-medium">Your Score</span>
+                                  <span className="text-sm font-medium">{score}/{maxScore} ({scorePercentage}%)</span>
+                                </div>
+                                <Progress 
+                                  value={scorePercentage} 
+                                  className={`h-2 ${
+                                    scorePercentage >= (quiz.passingScore || 70) 
+                                      ? 'bg-green-100 text-green-700' 
+                                      : 'bg-red-100 text-red-700'
+                                  }`} 
+                                />
+                              </div>
+                            )}
+                          </CardContent>
+                          <CardFooter>
+                            {isEnrolled ? (
+                              attempted ? (
+                                <Button variant="outline" disabled={!quiz.reviewEnabled} className="w-full">
+                                  {quiz.reviewEnabled ? "Review Answers" : "Review Disabled"}
+                                </Button>
+                              ) : (
+                                <Link to={`/quiz/${quiz.id}/attempt`} className="w-full">
+                                  <Button variant="default" className="w-full">
+                                    Start Quiz <ArrowRight className="ml-2 h-4 w-4" />
+                                  </Button>
+                                </Link>
+                              )
+                            ) : (
+                              <Button variant="default" className="w-full" disabled>
+                                Enroll to Access
                               </Button>
-                            </Link>
-                          ) : (
-                            <Button variant="default" className="w-full" disabled>
-                              Enroll to Access
-                            </Button>
-                          )}
-                        </CardFooter>
-                      </Card>
-                    ))}
+                            )}
+                          </CardFooter>
+                        </Card>
+                      );
+                    })}
                   </div>
                 ) : (
                   <Card>
@@ -272,33 +346,11 @@ export default function CourseDetailPage() {
                 </div>
                 
                 <div className="flex items-center">
-                  <Users className="h-5 w-5 text-mindpop-400 mr-3" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Students</p>
-                    <p className="text-gray-900 dark:text-white">
-                      {course.enrolledCount || 0} enrolled
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center">
                   <FileCheck className="h-5 w-5 text-mindpop-400 mr-3" />
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Quizzes</p>
                     <p className="text-gray-900 dark:text-white">
-                      {quizzes.length} available
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center">
-                  <Book className="h-5 w-5 text-mindpop-400 mr-3" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Subject</p>
-                    <p className="text-gray-900 dark:text-white">
-                      {course.title.includes("Math") ? "Mathematics" : 
-                       course.title.includes("Physics") ? "Science" :
-                       course.title.includes("History") ? "History" : "General Education"}
+                      {courseQuizzes.length} available
                     </p>
                   </div>
                 </div>
@@ -313,8 +365,9 @@ export default function CourseDetailPage() {
                     <Button 
                       onClick={handleEnroll} 
                       className="w-full"
+                      disabled={enrollmentLoading}
                     >
-                      Enroll Now
+                      {enrollmentLoading ? 'Enrolling...' : 'Enroll Now'}
                     </Button>
                   )
                 )}
@@ -326,7 +379,7 @@ export default function CourseDetailPage() {
                         Edit Course
                       </Button>
                     </Link>
-                    <Link to={`/admin/courses/${course.id}/quizzes`} className="w-full">
+                    <Link to={`/admin/quizzes/${course.id}/quizzes`} className="w-full">
                       <Button className="w-full">
                         Manage Quizzes
                       </Button>
@@ -348,10 +401,10 @@ export default function CourseDetailPage() {
                         Course Completion
                       </span>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {progress}%
+                        {calculateCompletionPercentage()}%
                       </span>
                     </div>
-                    <Progress value={progress} className="h-2" />
+                    <Progress value={calculateCompletionPercentage()} className="h-2" />
                   </div>
                   
                   <div>
@@ -360,10 +413,14 @@ export default function CourseDetailPage() {
                         Quizzes Completed
                       </span>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        1/{quizzes.length}
+                        {courseQuizzes.filter(quiz => hasAttemptedQuiz(quiz.id)).length}/{courseQuizzes.length}
                       </span>
                     </div>
-                    <Progress value={(1 / quizzes.length) * 100} className="h-2" />
+                    <Progress 
+                      value={courseQuizzes.length > 0 ? 
+                        (courseQuizzes.filter(quiz => hasAttemptedQuiz(quiz.id)).length / courseQuizzes.length) * 100 : 0} 
+                      className="h-2" 
+                    />
                   </div>
                 </CardContent>
               </Card>

@@ -23,7 +23,9 @@ import RegisterPage from "@/pages/auth/register";
 import StudentDashboard from "@/pages/student/dashboard";
 import AdminDashboard from "@/pages/admin/dashboard";
 import CoursesPage from "@/pages/courses/index";
+import CourseDetailPage from "@/pages/courses/[id]";
 import AdminCoursesPage from "@/pages/admin/courses/index";
+import QuizQuestionsPage from "@/pages/admin/quizzes/[id]/questions/index";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -53,12 +55,14 @@ const App = () => (
                     <Route element={<DashboardLayout />}>
                       <Route path="/dashboard" element={<StudentDashboard />} />
                       <Route path="/courses" element={<CoursesPage />} />
+                      <Route path="/courses/:id" element={<CourseDetailPage />} />
                     </Route>
 
                     {/* Admin routes */}
                     <Route element={<AdminLayout />}>
                       <Route path="/admin/dashboard" element={<AdminDashboard />} />
                       <Route path="/admin/courses" element={<AdminCoursesPage />} />
+                      <Route path="/admin/quizzes/:id/questions" element={<QuizQuestionsPage />} />
                     </Route>
 
                     {/* Catch-all route */}
