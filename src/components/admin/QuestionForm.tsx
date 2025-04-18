@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -51,8 +50,8 @@ export function QuestionForm({ initialData, onSuccess, quizId }: QuestionFormPro
     text: initialData?.text || '',
     quizId: quizId || initialData?.quizId || '',
     type: initialData?.type || 'multiple_choice',
-    options: initialData?.options as string[] || ['', ''],
-    correctAnswer: initialData?.correctAnswer || '',
+    options: initialData?.options || ['', ''],
+    correctAnswer: initialData?.correctAnswer as string || '',
     points: initialData?.points || 1,
   };
 
@@ -77,7 +76,7 @@ export function QuestionForm({ initialData, onSuccess, quizId }: QuestionFormPro
 
       switch (data.type) {
         case 'multiple_choice':
-          processedOptions = data.options;
+          processedOptions = data.options as string[];
           processedCorrectAnswer = data.correctAnswer;
           break;
         case 'true_false':

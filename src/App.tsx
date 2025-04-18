@@ -25,7 +25,12 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import CoursesPage from "@/pages/courses/index";
 import CourseDetailPage from "@/pages/courses/[id]";
 import AdminCoursesPage from "@/pages/admin/courses/index";
+import AdminCourseEditPage from "@/pages/admin/courses/[id]/edit";
+import AdminCourseQuizzesPage from "@/pages/admin/courses/[id]/quizzes";
+import AdminQuizNewPage from "@/pages/admin/quizzes/new";
+import AdminQuizEditPage from "@/pages/admin/quizzes/[id]/edit";
 import QuizQuestionsPage from "@/pages/admin/quizzes/[id]/questions/index";
+import StudentQuizAttemptPage from "@/pages/student/courses/[courseId]/quizzes/[quizId]/attempt";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,12 +61,17 @@ const App = () => (
                       <Route path="/dashboard" element={<StudentDashboard />} />
                       <Route path="/courses" element={<CoursesPage />} />
                       <Route path="/courses/:id" element={<CourseDetailPage />} />
+                      <Route path="/student/courses/:courseId/quizzes/:quizId/attempt" element={<StudentQuizAttemptPage />} />
                     </Route>
 
                     {/* Admin routes */}
                     <Route element={<AdminLayout />}>
                       <Route path="/admin/dashboard" element={<AdminDashboard />} />
                       <Route path="/admin/courses" element={<AdminCoursesPage />} />
+                      <Route path="/admin/courses/:id/edit" element={<AdminCourseEditPage />} />
+                      <Route path="/admin/courses/:id/quizzes" element={<AdminCourseQuizzesPage />} />
+                      <Route path="/admin/quizzes/new" element={<AdminQuizNewPage />} />
+                      <Route path="/admin/quizzes/:id/edit" element={<AdminQuizEditPage />} />
                       <Route path="/admin/quizzes/:id/questions" element={<QuizQuestionsPage />} />
                     </Route>
 
