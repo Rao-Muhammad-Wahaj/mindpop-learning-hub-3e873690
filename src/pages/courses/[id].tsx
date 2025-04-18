@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useCourses } from '@/providers/CoursesProvider';
@@ -28,7 +27,6 @@ const CourseDetailPage = () => {
   const [courseQuizzes, setCourseQuizzes] = useState([]);
 
   useEffect(() => {
-    // Load course quizzes
     if (!quizzesLoading && quizzes.length > 0 && id) {
       const filteredQuizzes = quizzes.filter(quiz => quiz.courseId === id);
       setCourseQuizzes(filteredQuizzes);
@@ -36,7 +34,6 @@ const CourseDetailPage = () => {
   }, [id, quizzes, quizzesLoading]);
 
   useEffect(() => {
-    // Check if user is enrolled in this course
     if (user && id) {
       checkEnrollment();
     }
@@ -60,13 +57,17 @@ const CourseDetailPage = () => {
       
       if (data) {
         setIsEnrolled(true);
+        const completedQuizzes = Array.isArray(data.completed_quizzes) 
+          ? data.completed_quizzes 
+          : [];
+          
         setEnrollment({
           id: data.id,
           userId: data.user_id,
           courseId: data.course_id,
           enrolledAt: data.enrolled_at,
           progress: data.progress,
-          completedQuizzes: data.completed_quizzes || [],
+          completedQuizzes: completedQuizzes
         });
       }
     } catch (error) {
@@ -107,7 +108,7 @@ const CourseDetailPage = () => {
         courseId: data.course_id,
         enrolledAt: data.enrolled_at,
         progress: data.progress,
-        completedQuizzes: data.completed_quizzes || [],
+        completedQuizzes: Array.isArray(data.completed_quizzes) ? data.completed_quizzes : []
       });
       
       toast({
@@ -126,7 +127,6 @@ const CourseDetailPage = () => {
     }
   };
 
-  // Find the current course from the courses array
   const course = courses.find(c => c.id === id);
 
   if (coursesLoading) {
@@ -246,7 +246,11 @@ const CourseDetailPage = () => {
                                   Completed
                                 </span>
                                 {quiz.reviewEnabled && (
-                                  <Button variant="outline" size="sm">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => navigate(`/student/courses/${id}/quizzes/${quiz.id}/review`)}
+                                  >
                                     Review Quiz
                                   </Button>
                                 )}
@@ -300,23 +304,23 @@ const CourseDetailPage = () => {
                   </p>
                   <p className="text-lg font-semibold">{courseQuizzes.length}</p>
                 </div>
-                {isEnrolled && (
+                {isEnrolled && enrollment && (
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       Enrolled On
                     </p>
                     <p className="text-lg font-semibold">
-                      {new Date(enrollment?.enrolledAt || '').toLocaleDateString()}
+                      {new Date(enrollment.enrolledAt || '').toLocaleDateString()}
                     </p>
                   </div>
                 )}
-                {isEnrolled && (
+                {isEnrolled && enrollment && (
                   <div>
                     <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       Progress
                     </p>
                     <p className="text-lg font-semibold">
-                      {enrollment?.progress || 0}%
+                      {enrollment.progress || 0}%
                     </p>
                   </div>
                 )}

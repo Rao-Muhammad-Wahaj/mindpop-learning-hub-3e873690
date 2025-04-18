@@ -31,6 +31,7 @@ import AdminQuizNewPage from "@/pages/admin/quizzes/new";
 import AdminQuizEditPage from "@/pages/admin/quizzes/[id]/edit";
 import QuizQuestionsPage from "@/pages/admin/quizzes/[id]/questions/index";
 import StudentQuizAttemptPage from "@/pages/student/courses/[courseId]/quizzes/[quizId]/attempt";
+import QuizReviewPage from "@/pages/student/courses/[courseId]/quizzes/[quizId]/review";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +63,7 @@ const App = () => (
                       <Route path="/courses" element={<CoursesPage />} />
                       <Route path="/courses/:id" element={<CourseDetailPage />} />
                       <Route path="/student/courses/:courseId/quizzes/:quizId/attempt" element={<StudentQuizAttemptPage />} />
+                      <Route path="/student/courses/:courseId/quizzes/:quizId/review" element={<QuizReviewPage />} />
                     </Route>
 
                     {/* Admin routes */}

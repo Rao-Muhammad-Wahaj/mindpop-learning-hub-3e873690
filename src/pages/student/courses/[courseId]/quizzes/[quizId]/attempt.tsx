@@ -11,9 +11,10 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
-import { Question, Quiz, QuizAttempt } from '@/types';
+import { Question, Quiz } from '@/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import { useToast } from '@/hooks/use-toast';
 
 const StudentQuizAttemptPage = () => {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
@@ -22,6 +23,7 @@ const StudentQuizAttemptPage = () => {
   const { quizzes, isLoading: quizzesLoading } = useQuizzes();
   const { questions, isLoading: questionsLoading } = useQuestions();
   const { hasAttemptedQuiz, createAttempt, completeAttempt } = useQuizAttempts();
+  const { toast } = useToast();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
@@ -31,6 +33,7 @@ const StudentQuizAttemptPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [attemptStarted, setAttemptStarted] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!quizzesLoading && quizzes.length > 0 && quizId) {
@@ -55,8 +58,13 @@ const StudentQuizAttemptPage = () => {
 
   useEffect(() => {
     // Check if user has already attempted this quiz
-    if (quizId && hasAttemptedQuiz(quizId)) {
-      navigate(`/courses/${courseId}`);
+    try {
+      if (quizId && hasAttemptedQuiz(quizId)) {
+        navigate(`/courses/${courseId}`);
+      }
+    } catch (error) {
+      console.error("Error checking quiz attempt:", error);
+      setError("Error checking previous attempts. Please try again.");
     }
   }, [quizId, hasAttemptedQuiz, navigate, courseId]);
 
@@ -91,6 +99,7 @@ const StudentQuizAttemptPage = () => {
       }
     } catch (error) {
       console.error('Error starting quiz attempt:', error);
+      setError("Failed to start quiz. Please try again.");
     }
   };
 
@@ -114,14 +123,22 @@ const StudentQuizAttemptPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!attemptId || !user) return;
+    if (!attemptId || !user) {
+      toast({
+        title: 'Error',
+        description: 'Unable to submit quiz. Missing attempt information.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     setIsSubmitting(true);
     
     try {
       // Calculate score
       let score = 0;
-      const formattedAnswers = quizQuestions.map(question => {
+      const safeQuestions = quizQuestions || [];
+      const formattedAnswers = safeQuestions.map(question => {
         const userAnswer = answers[question.id] || '';
         const isCorrect = userAnswer === question.correctAnswer.toString();
         if (isCorrect) score += question.points;
@@ -133,10 +150,20 @@ const StudentQuizAttemptPage = () => {
         };
       });
       
-      await completeAttempt(attemptId, score, formattedAnswers);
+      await completeAttempt({
+        id: attemptId,
+        score,
+        answers: formattedAnswers
+      });
+      
       navigate(`/courses/${courseId}`);
     } catch (error) {
       console.error('Error submitting quiz:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit quiz. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -154,6 +181,23 @@ const StudentQuizAttemptPage = () => {
         <div className="flex justify-center">
           <p>Loading quiz...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container py-8">
+        <Alert variant="destructive">
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <Button 
+          className="mt-4" 
+          onClick={() => navigate(`/courses/${courseId}`)}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Course
+        </Button>
       </div>
     );
   }
@@ -217,6 +261,24 @@ const StudentQuizAttemptPage = () => {
   }
 
   const currentQ = quizQuestions[currentQuestion];
+  if (!currentQ) {
+    return (
+      <div className="container py-8">
+        <Alert>
+          <AlertTitle>Error loading question</AlertTitle>
+          <AlertDescription>
+            We couldn't load the current question. Please try again.
+          </AlertDescription>
+        </Alert>
+        <Button 
+          className="mt-4" 
+          onClick={() => navigate(`/courses/${courseId}`)}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" /> Back to Course
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-3xl py-8">
@@ -251,7 +313,7 @@ const StudentQuizAttemptPage = () => {
                 value={answers[currentQ.id] || ''}
                 onValueChange={(value) => handleAnswer(currentQ.id, value)}
               >
-                {currentQ.options?.map((option, index) => (
+                {Array.isArray(currentQ.options) && currentQ.options.map((option, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <RadioGroupItem value={index.toString()} id={`option-${index}`} />
                     <Label htmlFor={`option-${index}`}>{option}</Label>

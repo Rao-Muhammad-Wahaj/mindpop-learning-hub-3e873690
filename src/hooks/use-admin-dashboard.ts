@@ -37,6 +37,7 @@ export const useAdminDashboard = () => {
 
       if (error) throw error;
 
+      // Process enrollment data by course
       const enrollmentCounts: Record<string, number> = {};
       data.forEach(enrollment => {
         const courseId = enrollment.course_id;
@@ -55,8 +56,16 @@ export const useAdminDashboard = () => {
   // Calculate quiz performance data
   const quizPerformanceData = quizzes.map(quiz => {
     const quizAttempts = attempts.filter(attempt => attempt.quizId === quiz.id);
-    const averageScore = quizAttempts.length > 0
-      ? quizAttempts.reduce((sum, attempt) => sum + (attempt.score / attempt.maxScore) * 100, 0) / quizAttempts.length
+    const attemptCount = quizAttempts.length;
+    
+    // Calculate average score safely, handling empty arrays
+    const averageScore = attemptCount > 0
+      ? quizAttempts.reduce((sum, attempt) => {
+          // Handle potentially undefined values
+          const score = attempt.score || 0;
+          const maxScore = attempt.maxScore || 1; // Avoid division by zero
+          return sum + ((score / maxScore) * 100);
+        }, 0) / attemptCount
       : 0;
 
     return {
@@ -65,7 +74,7 @@ export const useAdminDashboard = () => {
     };
   });
 
-  // Calculate quiz completion data
+  // Calculate quiz completion data safely
   const completedAttempts = attempts.filter(attempt => attempt.completedAt).length;
   const incompleteAttempts = attempts.filter(attempt => !attempt.completedAt).length;
   

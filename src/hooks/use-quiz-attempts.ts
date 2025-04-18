@@ -51,7 +51,7 @@ export const useQuizAttempts = (userId?: string) => {
           user_id: attempt.userId,
           score: attempt.score,
           max_score: attempt.maxScore,
-          answers: attempt.answers
+          answers: Array.isArray(attempt.answers) ? attempt.answers : []
         })
         .select()
         .single();
@@ -90,9 +90,10 @@ export const useQuizAttempts = (userId?: string) => {
   });
 
   const completeAttemptMutation = useMutation({
-    mutationFn: async ({ id, answers }: { id: string; answers: QuizAttempt['answers'] }) => {
-      const score = answers.reduce((total, answer) => total + (answer.isCorrect ? 1 : 0), 0);
-      const maxScore = answers.length;
+    mutationFn: async (params: { id: string; score: number; answers: any[] }) => {
+      const { id, score, answers } = params;
+      const safeAnswers = Array.isArray(answers) ? answers : [];
+      const maxScore = safeAnswers.length;
 
       const { data, error } = await supabase
         .from('quiz_attempts')
@@ -100,7 +101,7 @@ export const useQuizAttempts = (userId?: string) => {
           completed_at: new Date().toISOString(),
           score,
           max_score: maxScore,
-          answers
+          answers: safeAnswers
         })
         .eq('id', id)
         .select()
