@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
@@ -8,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft } from 'lucide-react';
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -47,7 +47,6 @@ export default function RegisterPage() {
     try {
       const success = await signup(email, password, name);
       if (success) {
-        // On successful signup, redirect to login page
         navigate("/login");
       }
     } catch (err) {
@@ -60,8 +59,18 @@ export default function RegisterPage() {
   
   return (
     <div className="animate-fade-in">
-      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Create your account</h2>
-      
+      <div className="mb-6">
+        <Link to="/">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Home
+          </Button>
+        </Link>
+      </div>
+
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-md mb-4 text-sm">
           {error}

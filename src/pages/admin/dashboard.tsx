@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -11,6 +10,7 @@ import { useCourses } from "@/providers/CoursesProvider";
 import { useQuizzes } from "@/providers/QuizzesProvider";
 import { useQuizAttempts } from "@/providers/QuizAttemptsProvider";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "react-query";
 
 const COLORS = ['#9b87f5', '#E5DEFF'];
 
@@ -34,19 +34,42 @@ export default function AdminDashboard() {
       if (!error) {
         setTotalStudents(count || 0);
       }
-      setIsLoading(false);
     };
 
     fetchTotalStudents();
   }, []);
 
-  // Prepare data for charts
-  const courseEnrollmentData = courses.map(course => ({
-    name: course.title,
-    students: 0, // Would need an enrollment table to get actual numbers
-    quizzes: quizzes.filter(quiz => quiz.courseId === course.id).length
-  }));
+  // Update course enrollment data fetch
+  const { data: enrollments } = useQuery({
+    queryKey: ['enrollments'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('enrollments')
+        .select(`
+          course_id,
+          courses (
+            title
+          )
+        `);
 
+      if (error) throw error;
+
+      const enrollmentCounts = data.reduce((acc: Record<string, number>, enrollment) => {
+        const courseId = enrollment.course_id;
+        acc[courseId] = (acc[courseId] || 0) + 1;
+        return acc;
+      }, {});
+
+      return courses.map(course => ({
+        name: course.title,
+        students: enrollmentCounts[course.id] || 0,
+        quizzes: quizzes.filter(quiz => quiz.courseId === course.id).length
+      }));
+    },
+    enabled: courses.length > 0
+  });
+
+  // Prepare data for charts
   const quizPerformanceData = quizzes.map(quiz => {
     const quizAttempts = attempts.filter(attempt => attempt.quizId === quiz.id);
     const averageScore = quizAttempts.length > 0 
@@ -215,7 +238,7 @@ export default function AdminDashboard() {
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={courseEnrollmentData}
+                      data={enrollments}
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />
@@ -394,11 +417,11 @@ export default function AdminDashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {courseEnrollmentData.length > 0 ? (
+              {enrollments.length > 0 ? (
                 <div className="h-80">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={courseEnrollmentData}
+                      data={enrollments}
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" />

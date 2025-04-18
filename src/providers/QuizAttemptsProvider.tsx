@@ -1,4 +1,3 @@
-
 import { createContext, useContext, ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +22,6 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Fetch all attempts for the current user
   const { data: attempts = [], isLoading, error } = useQuery({
     queryKey: ['quiz-attempts', user?.id],
     queryFn: async () => {
@@ -60,17 +58,14 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
     enabled: !!user,
   });
 
-  // Get attempts by quiz ID for the current user
   const getUserAttemptsByQuiz = (quizId: string) => {
     return attempts.filter(attempt => attempt.quizId === quizId);
   };
 
-  // Check if user has attempted a quiz
   const hasAttemptedQuiz = (quizId: string) => {
     return attempts.some(attempt => attempt.quizId === quizId && attempt.completedAt);
   };
 
-  // Create a new attempt
   const createAttemptMutation = useMutation({
     mutationFn: async (attempt: Omit<QuizAttempt, 'id' | 'startedAt' | 'completedAt'>) => {
       const { data, error } = await supabase
@@ -118,15 +113,13 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Complete an attempt
   const completeAttemptMutation = useMutation({
-    mutationFn: async ({ id, score, maxScore, answers }: { id: string; score: number; maxScore: number; answers: QuizAttempt['answers'] }) => {
-      // Ensure answers are in the correct format for Supabase
-      const formattedAnswers = answers.map(ans => ({
-        questionId: ans.questionId,
-        answer: ans.answer,
-        isCorrect: ans.isCorrect
-      }));
+    mutationFn: async ({ id, answers }: { id: string; answers: QuizAttempt['answers'] }) => {
+      const score = answers.reduce((total, answer) => {
+        return total + (answer.isCorrect ? 1 : 0);
+      }, 0);
+
+      const maxScore = answers.length;
 
       const { data, error } = await supabase
         .from('quiz_attempts')
@@ -134,7 +127,7 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
           completed_at: new Date().toISOString(),
           score,
           max_score: maxScore,
-          answers: formattedAnswers
+          answers
         })
         .eq('id', id)
         .select()
@@ -177,7 +170,6 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
     },
   });
 
-  // Create an attempt
   const createAttempt = async (attempt: Omit<QuizAttempt, 'id' | 'startedAt' | 'completedAt'>) => {
     try {
       return await createAttemptMutation.mutateAsync(attempt);
@@ -187,10 +179,8 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Complete an attempt
   const completeAttempt = async (id: string, score: number, answers: QuizAttempt['answers']) => {
     try {
-      // Calculate max score based on the number of questions
       const maxScore = answers.length;
       
       return await completeAttemptMutation.mutateAsync({ id, score, maxScore, answers });
