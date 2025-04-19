@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 export function AuthLayout() {
   const { user, isLoading } = useAuth();
   
-  // If user is already logged in, redirect to appropriate dashboard
+  // If user is already logged in, redirect to appropriate dashboard based on role
   if (!isLoading && user) {
     return <Navigate to={user.role === 'admin' ? "/admin/dashboard" : "/dashboard"} replace />;
   }

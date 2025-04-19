@@ -123,8 +123,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           data: {
             name: name,
-            // Explicitly set role for admin if needed
-            role: email === 'raowahaj323@gmail.com' ? 'admin' : 'student'
+            // All new sign-ups are students by default
+            role: 'student'
           },
         },
       });

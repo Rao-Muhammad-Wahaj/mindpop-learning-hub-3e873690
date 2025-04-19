@@ -11,8 +11,9 @@ export function QuizAttemptsProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const quizAttemptsData = useQuizAttemptsHook(user?.id);
 
-  // This provider needs to invalidate related queries when quiz attempts change
+  // This provider now invalidates related queries when quiz attempts change
   // to address issue #5: Live Statistics
+  // The invalidation logic is implemented in useQuizAttempts
 
   return (
     <QuizAttemptsContext.Provider value={quizAttemptsData}>
