@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -10,7 +9,6 @@ import { Clock, AlertCircle, CheckCircle } from "lucide-react";
 import { Question, Quiz } from "@/types";
 import { useAuth } from "@/lib/auth";
 
-// Mock quiz data
 const mockQuiz: Quiz = {
   id: "q1",
   courseId: "1",
@@ -23,7 +21,6 @@ const mockQuiz: Quiz = {
   reviewEnabled: true,
 };
 
-// Mock questions data
 const mockQuestions: Question[] = [
   {
     id: "que1",
@@ -86,20 +83,17 @@ export default function QuizAttemptPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch quiz data
   useEffect(() => {
     const fetchQuizData = async () => {
       setIsLoading(true);
       setError(null);
       try {
-        // In a real app, this would fetch from Supabase
-        // For demo, we'll use mock data
         await new Promise(resolve => setTimeout(resolve, 1000));
         
         if (id === "q1") {
           setQuiz(mockQuiz);
           setQuestions(mockQuestions);
-          setTimeLeft(mockQuiz.timeLimit * 60); // Convert minutes to seconds
+          setTimeLeft(mockQuiz.timeLimit * 60);
         } else {
           setError("Quiz not found");
         }
@@ -116,7 +110,6 @@ export default function QuizAttemptPage() {
     }
   }, [id]);
 
-  // Timer countdown
   useEffect(() => {
     if (!timeLeft || timeLeft <= 0) return;
     
@@ -132,7 +125,6 @@ export default function QuizAttemptPage() {
     return () => clearInterval(timer);
   }, [timeLeft]);
 
-  // Auto-submit when time runs out
   useEffect(() => {
     if (timeLeft === 0) {
       handleSubmitQuiz();
@@ -181,15 +173,12 @@ export default function QuizAttemptPage() {
     try {
       const { score, totalPoints, percentage } = calculateScore();
       
-      // In a real app, this would save to Supabase
       const quizAttempt = {
         id: `attempt_${Date.now()}`,
-        quizId: id,
+        quizId: id!,
+        courseId: quiz?.courseId!,
         userId: user?.id,
-        startedAt: new Date(Date.now() - (mockQuiz.timeLimit * 60 * 1000) + ((timeLeft || 0) * 1000)).toISOString(),
-        completedAt: new Date().toISOString(),
         score,
-        maxScore: totalPoints,
         answers: Object.keys(answers).map(questionId => {
           const question = questions.find(q => q.id === questionId);
           return {
@@ -200,10 +189,8 @@ export default function QuizAttemptPage() {
         })
       };
       
-      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // In a real app, we would save the result and then navigate
       navigate(`/quiz/${id}/result`, { 
         state: { 
           quizAttempt,
@@ -218,7 +205,6 @@ export default function QuizAttemptPage() {
     }
   };
 
-  // Format time as mm:ss
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -229,7 +215,6 @@ export default function QuizAttemptPage() {
   const isAnswered = currentQuestion && answers[currentQuestion.id];
   const answeredCount = Object.keys(answers).length;
   
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
