@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useCourses } from '@/providers/CoursesProvider';
@@ -11,6 +12,7 @@ import { ArrowLeft, FileCheck, Clock, BookOpen, CheckCircle } from 'lucide-react
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { EnrolledCourse } from '@/types';
+import { useQueryClient } from '@tanstack/react-query';
 
 const CourseDetailPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +22,7 @@ const CourseDetailPage = () => {
   const { attempts, hasAttemptedQuiz } = useQuizAttempts();
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);

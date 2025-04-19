@@ -123,7 +123,7 @@ const StudentQuizAttemptPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!attemptId || !user) {
+    if (!attemptId || !user || !quizId || !courseId) {
       toast({
         title: 'Error',
         description: 'Unable to submit quiz. Missing attempt information.',
@@ -152,6 +152,8 @@ const StudentQuizAttemptPage = () => {
       
       await completeAttempt({
         id: attemptId,
+        quizId: quizId,
+        courseId: courseId,
         score,
         answers: formattedAnswers
       });

@@ -17,8 +17,8 @@ export const useQuizCompletionStats = () => {
           completed_at,
           score,
           max_score,
-          profiles:profiles(name),
-          quizzes:quizzes(title, course_id)
+          profiles:user_id(name),
+          quizzes:quiz_id(title, course_id)
         `)
         .order('completed_at', { ascending: false })
         .limit(20);

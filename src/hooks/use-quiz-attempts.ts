@@ -8,10 +8,14 @@ interface CreateAttemptParams extends Omit<QuizAttempt, 'id' | 'startedAt' | 'co
 
 interface CompleteAttemptParams {
   id: string;
-  score: number;
-  answers: any[];
   quizId: string;
   courseId: string;
+  score: number;
+  answers: {
+    questionId: string;
+    answer: string;
+    isCorrect: boolean;
+  }[];
 }
 
 export const useQuizAttempts = (userId?: string) => {
