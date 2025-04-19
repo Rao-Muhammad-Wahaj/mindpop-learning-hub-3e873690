@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAdminDashboard } from "@/hooks/use-admin-dashboard";
 import StatisticsCards from "@/components/admin/StatisticsCards";
 import { DashboardCharts } from "@/components/admin/DashboardCharts";
+import { RecentQuizAttempts } from "@/components/admin/RecentQuizAttempts";
 
 export default function AdminDashboard() {
   const {
@@ -15,7 +16,9 @@ export default function AdminDashboard() {
     completionRate,
     enrollments,
     quizCompletionData,
-    quizPerformanceData
+    quizPerformanceData,
+    attemptsByMonth,
+    isLoading
   } = useAdminDashboard();
 
   const containerVariants = {
@@ -61,6 +64,7 @@ export default function AdminDashboard() {
           coursesCount={coursesCount}
           quizzesCount={quizzesCount}
           completionRate={completionRate}
+          isLoading={isLoading}
         />
 
         <DashboardCharts
@@ -68,6 +72,13 @@ export default function AdminDashboard() {
           quizCompletionData={quizCompletionData}
           quizPerformanceData={quizPerformanceData}
         />
+
+        <div className="mt-8">
+          <RecentQuizAttempts 
+            attemptsByMonth={attemptsByMonth} 
+            isLoading={isLoading} 
+          />
+        </div>
       </motion.div>
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { BookOpen, Clock, Award, CheckCircle, PieChart } from "lucide-react";
@@ -10,13 +9,17 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCourses } from '@/providers/CoursesProvider';
+import { useQuizzes } from '@/providers/QuizzesProvider';
 import { useQuizAttempts } from '@/providers/QuizAttemptsProvider';
 import { Course, EnrolledCourse } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const { courses } = useCourses();
+  const { quizzes } = useQuizzes();
   const { attempts } = useQuizAttempts();
+  const { toast } = useToast();
 
   const [enrolledCourses, setEnrolledCourses] = useState<(EnrolledCourse & { course: Course })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,6 +42,11 @@ export default function StudentDashboard() {
           
         if (error) {
           console.error('Error fetching enrollments:', error);
+          toast({
+            title: 'Error',
+            description: `Failed to fetch enrollments: ${error.message}`,
+            variant: 'destructive',
+          });
           return;
         }
         
@@ -47,30 +55,72 @@ export default function StudentDashboard() {
           const course = courses.find(c => c.id === enrollment.course_id);
           if (!course) return null;
           
+          // Fix: Safely convert completedQuizzes to string[] for TypeScript
+          let completedQuizzes: string[] = [];
+          if (enrollment.completed_quizzes) {
+            if (Array.isArray(enrollment.completed_quizzes)) {
+              completedQuizzes = enrollment.completed_quizzes.map(id => 
+                typeof id === 'string' ? id : String(id)
+              );
+            }
+          }
+          
           return {
             id: enrollment.id,
             courseId: enrollment.course_id,
             userId: enrollment.user_id,
             enrolledAt: enrollment.enrolled_at,
             progress: enrollment.progress,
-            completedQuizzes: enrollment.completed_quizzes || [],
+            completedQuizzes: completedQuizzes,
             course,
           };
         }).filter(Boolean);
         
         setEnrolledCourses(enrolled);
         
+        // Fix: Calculate course completion status for issue #4
+        // A course is "in progress" if the student has not completed all quizzes
+        // A course is "completed" if the student has completed all quizzes
+        let inProgressCount = 0;
+        let completedCount = 0;
+        
+        enrolled.forEach(enrollment => {
+          const courseQuizzes = quizzes.filter(q => q.courseId === enrollment.courseId);
+          
+          // If no quizzes in course, consider it completed
+          if (courseQuizzes.length === 0) {
+            completedCount++;
+            return;
+          }
+          
+          // Check if all quizzes are in completedQuizzes
+          const allCompleted = courseQuizzes.every(quiz => 
+            enrollment.completedQuizzes.includes(quiz.id)
+          );
+          
+          if (allCompleted) {
+            completedCount++;
+          } else {
+            inProgressCount++;
+          }
+        });
+        
         // Calculate stats
         setStats({
           totalCourses: enrolled.length,
-          inProgressCourses: enrolled.filter(e => e.progress < 100).length,
-          completedCourses: enrolled.filter(e => e.progress === 100).length,
+          inProgressCourses: inProgressCount,
+          completedCourses: completedCount,
           averageScore: attempts.length > 0
             ? attempts.reduce((sum, quiz) => sum + (quiz.score / quiz.maxScore) * 100, 0) / attempts.length
             : 0,
         });
       } catch (error) {
         console.error('Error in fetchEnrollments:', error);
+        toast({
+          title: 'Error',
+          description: 'An unexpected error occurred while fetching your enrollments.',
+          variant: 'destructive',
+        });
       } finally {
         setIsLoading(false);
       }
@@ -79,7 +129,7 @@ export default function StudentDashboard() {
     if (courses.length > 0) {
       fetchEnrollments();
     }
-  }, [user, courses, attempts]);
+  }, [user, courses, quizzes, attempts]); // Add quizzes dependency for live updates
 
   const containerVariants = {
     hidden: { opacity: 0 },

@@ -34,7 +34,19 @@ import StudentQuizAttemptPage from "@/pages/student/courses/[courseId]/quizzes/[
 import QuizReviewPage from "@/pages/student/courses/[courseId]/quizzes/[quizId]/review";
 import NotFound from "@/pages/NotFound";
 
-const queryClient = new QueryClient();
+// Create QueryClient with better config for live updates (issue #5)
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Lower staleTime for more frequent updates
+      staleTime: 1000 * 30, // 30 seconds
+      // Automatically refetch when browser window is refocused
+      refetchOnWindowFocus: true,
+      // Retry failed queries
+      retry: 1
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

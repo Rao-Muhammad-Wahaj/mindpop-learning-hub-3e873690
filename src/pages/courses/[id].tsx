@@ -57,10 +57,16 @@ const CourseDetailPage = () => {
       
       if (data) {
         setIsEnrolled(true);
-        const completedQuizzes = Array.isArray(data.completed_quizzes) 
-          ? data.completed_quizzes 
-          : [];
-          
+        
+        let completedQuizzes: string[] = [];
+        if (data.completed_quizzes) {
+          if (Array.isArray(data.completed_quizzes)) {
+            completedQuizzes = data.completed_quizzes.map(id => 
+              typeof id === 'string' ? id : String(id)
+            );
+          }
+        }
+        
         setEnrollment({
           id: data.id,
           userId: data.user_id,
@@ -102,19 +108,33 @@ const CourseDetailPage = () => {
       }
       
       setIsEnrolled(true);
+      
+      let completedQuizzes: string[] = [];
+      if (data.completed_quizzes) {
+        if (Array.isArray(data.completed_quizzes)) {
+          completedQuizzes = data.completed_quizzes.map(id => 
+            typeof id === 'string' ? id : String(id)
+          );
+        }
+      }
+      
       setEnrollment({
         id: data.id,
         userId: data.user_id,
         courseId: data.course_id,
         enrolledAt: data.enrolled_at,
         progress: data.progress,
-        completedQuizzes: Array.isArray(data.completed_quizzes) ? data.completed_quizzes : []
+        completedQuizzes: completedQuizzes
       });
       
       toast({
         title: 'Success',
         description: 'You have successfully enrolled in this course',
       });
+      
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['total-students'] });
+      
     } catch (error) {
       console.error('Error enrolling in course:', error);
       toast({

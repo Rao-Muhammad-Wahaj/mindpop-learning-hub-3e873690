@@ -19,6 +19,11 @@ export const useQuizAttempts = (userId?: string) => {
         .eq('user_id', userId);
 
       if (error) {
+        toast({
+          title: 'Error loading quiz attempts',
+          description: error.message,
+          variant: 'destructive',
+        });
         throw new Error(error.message);
       }
 
@@ -78,7 +83,12 @@ export const useQuizAttempts = (userId?: string) => {
       };
     },
     onSuccess: () => {
+      // Invalidate relevant queries for live statistics
       queryClient.invalidateQueries({ queryKey: ['quiz-attempts'] });
+      queryClient.invalidateQueries({ queryKey: ['student-completions'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-quiz-attempts'] });
+      queryClient.invalidateQueries({ queryKey: ['total-students'] });
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
     },
     onError: (error) => {
       toast({
@@ -90,12 +100,13 @@ export const useQuizAttempts = (userId?: string) => {
   });
 
   const completeAttemptMutation = useMutation({
-    mutationFn: async (params: { id: string; score: number; answers: any[] }) => {
-      const { id, score, answers } = params;
+    mutationFn: async (params: { id: string; score: number; answers: any[]; quizId: string; courseId: string }) => {
+      const { id, score, answers, quizId, courseId } = params;
       const safeAnswers = Array.isArray(answers) ? answers : [];
       const maxScore = safeAnswers.length;
 
-      const { data, error } = await supabase
+      // Start a transaction
+      const { data: quizAttemptData, error: quizAttemptError } = await supabase
         .from('quiz_attempts')
         .update({
           completed_at: new Date().toISOString(),
@@ -107,20 +118,83 @@ export const useQuizAttempts = (userId?: string) => {
         .select()
         .single();
 
-      if (error) {
-        throw new Error(error.message);
+      if (quizAttemptError) {
+        throw new Error(quizAttemptError.message);
+      }
+
+      // Update enrollment.completed_quizzes to track course completion
+      if (userId && courseId) {
+        const { data: enrollment, error: enrollmentError } = await supabase
+          .from('enrollments')
+          .select('completed_quizzes')
+          .eq('user_id', userId)
+          .eq('course_id', courseId)
+          .single();
+
+        if (enrollmentError) {
+          console.error('Error fetching enrollment:', enrollmentError);
+        } else {
+          // Extract completed quizzes safely
+          let completedQuizzes: string[] = [];
+          if (enrollment && enrollment.completed_quizzes) {
+            if (Array.isArray(enrollment.completed_quizzes)) {
+              completedQuizzes = enrollment.completed_quizzes.map(id => 
+                typeof id === 'string' ? id : String(id)
+              );
+            }
+          }
+
+          // Add the quiz to completed_quizzes if not already there
+          if (!completedQuizzes.includes(quizId)) {
+            completedQuizzes.push(quizId);
+
+            // Update the enrollment
+            const { error: updateError } = await supabase
+              .from('enrollments')
+              .update({
+                completed_quizzes: completedQuizzes
+              })
+              .eq('user_id', userId)
+              .eq('course_id', courseId);
+
+            if (updateError) {
+              console.error('Error updating enrollment:', updateError);
+            }
+
+            // Update the progress percentage based on completed quizzes
+            // This fixes issue #4: Student Dashboard Status
+            const { data: courseQuizzes, error: quizzesError } = await supabase
+              .from('quizzes')
+              .select('id')
+              .eq('course_id', courseId);
+
+            if (!quizzesError && courseQuizzes) {
+              const totalQuizzes = courseQuizzes.length;
+              const completedCount = completedQuizzes.length;
+              const progress = totalQuizzes > 0 
+                ? Math.round((completedCount / totalQuizzes) * 100) 
+                : 100;
+
+              await supabase
+                .from('enrollments')
+                .update({ progress })
+                .eq('user_id', userId)
+                .eq('course_id', courseId);
+            }
+          }
+        }
       }
 
       return {
-        id: data.id,
-        quizId: data.quiz_id,
-        userId: data.user_id,
-        startedAt: data.started_at,
-        completedAt: data.completed_at,
-        score: data.score || 0,
-        maxScore: data.max_score || 0,
-        answers: Array.isArray(data.answers) ?
-          data.answers.map((ans: any) => ({
+        id: quizAttemptData.id,
+        quizId: quizAttemptData.quiz_id,
+        userId: quizAttemptData.user_id,
+        startedAt: quizAttemptData.started_at,
+        completedAt: quizAttemptData.completed_at,
+        score: quizAttemptData.score || 0,
+        maxScore: quizAttemptData.max_score || 0,
+        answers: Array.isArray(quizAttemptData.answers) ?
+          quizAttemptData.answers.map((ans: any) => ({
             questionId: ans.questionId || ans.question_id,
             answer: ans.answer,
             isCorrect: ans.isCorrect || ans.is_correct
@@ -129,7 +203,11 @@ export const useQuizAttempts = (userId?: string) => {
       };
     },
     onSuccess: () => {
+      // Invalidate relevant queries for live statistics
       queryClient.invalidateQueries({ queryKey: ['quiz-attempts'] });
+      queryClient.invalidateQueries({ queryKey: ['student-completions'] });
+      queryClient.invalidateQueries({ queryKey: ['recent-quiz-attempts'] });
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
       toast({
         title: 'Success',
         description: 'Quiz completed successfully',
