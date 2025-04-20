@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { QuizAttempt } from "@/types";
@@ -8,7 +7,6 @@ export const useQuizCompletionStats = () => {
     queryKey: ['recent-quiz-attempts'],
     queryFn: async () => {
       try {
-        // Get the quiz attempts data with student_name column
         const { data, error } = await supabase
           .from('quiz_attempts')
           .select(`
@@ -20,6 +18,7 @@ export const useQuizCompletionStats = () => {
             completed_at,
             score,
             max_score,
+            answers,
             quizzes:quiz_id(title, course_id)
           `)
           .order('completed_at', { ascending: false })
@@ -30,7 +29,7 @@ export const useQuizCompletionStats = () => {
           throw error;
         }
 
-        // Fallback: If student_name is missing, fetch from profiles
+        // Fetch profiles only for attempts without student_name
         const userIds = data
           .filter(attempt => !attempt.student_name)
           .map(attempt => attempt.user_id);
@@ -51,28 +50,21 @@ export const useQuizCompletionStats = () => {
             });
           }
         }
-        
+
         // Map the data with student names
-        const enhancedData = data.map(attempt => {
-          // Use student_name from attempt if available, otherwise from profile map, finally fallback
-          const studentName = attempt.student_name || 
-                            profileMap.get(attempt.user_id) || 
-                            'Unknown Student';
-          
-          return {
-            id: attempt.id,
-            quizId: attempt.quiz_id,
-            userId: attempt.user_id,
-            studentName,
-            quizTitle: attempt.quizzes?.title || 'Unknown Quiz',
-            courseId: attempt.quizzes?.course_id,
-            startedAt: attempt.started_at,
-            completedAt: attempt.completed_at,
-            score: attempt.score || 0,
-            maxScore: attempt.max_score || 0,
-            month: new Date(attempt.completed_at || attempt.started_at).toLocaleString('default', { month: 'long', year: 'numeric' })
-          };
-        });
+        const enhancedData = data.map(attempt => ({
+          id: attempt.id,
+          quizId: attempt.quiz_id,
+          userId: attempt.user_id,
+          studentName: attempt.student_name || profileMap.get(attempt.user_id) || 'Unknown Student',
+          quizTitle: attempt.quizzes?.title || 'Unknown Quiz',
+          courseId: attempt.quizzes?.course_id,
+          startedAt: attempt.started_at,
+          completedAt: attempt.completed_at,
+          score: attempt.score || 0,
+          maxScore: attempt.max_score || 0,
+          month: new Date(attempt.completed_at || attempt.started_at).toLocaleString('default', { month: 'long', year: 'numeric' })
+        }));
 
         return enhancedData;
       } catch (error) {

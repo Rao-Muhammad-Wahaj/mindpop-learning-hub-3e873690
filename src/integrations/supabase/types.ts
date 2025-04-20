@@ -149,6 +149,7 @@ export type Database = {
           quiz_id: string
           score: number | null
           started_at: string
+          student_name: string | null
           user_id: string
         }
         Insert: {
@@ -160,6 +161,7 @@ export type Database = {
           quiz_id: string
           score?: number | null
           started_at?: string
+          student_name?: string | null
           user_id: string
         }
         Update: {
@@ -171,6 +173,7 @@ export type Database = {
           quiz_id?: string
           score?: number | null
           started_at?: string
+          student_name?: string | null
           user_id?: string
         }
         Relationships: [

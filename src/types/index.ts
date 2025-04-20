@@ -45,7 +45,7 @@ export interface QuizAttempt {
   id: string;
   quizId: string;
   userId: string;
-  studentName: string; // Added student name field
+  studentName: string; // Make sure this matches the new column
   startedAt: string;
   completedAt?: string;
   score: number;

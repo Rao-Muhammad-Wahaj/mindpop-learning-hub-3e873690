@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { QuizAttempt } from "@/types";
@@ -78,7 +77,7 @@ export const useQuizAttempts = (userId?: string) => {
         .insert({
           quiz_id: attempt.quizId,
           user_id: attempt.userId,
-          student_name: attempt.studentName || 'Unknown Student',
+          student_name: attempt.studentName,
           score: attempt.score,
           max_score: attempt.maxScore,
           answers: Array.isArray(attempt.answers) ? attempt.answers : []
@@ -92,9 +91,9 @@ export const useQuizAttempts = (userId?: string) => {
     onSuccess: invalidateRelatedQueries,
     onError: (error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: `Failed to create attempt: ${error.message}`,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   });
