@@ -7,37 +7,48 @@ export const useQuizCompletionStats = () => {
   const { data: recentAttempts = [], isLoading: isLoadingAttempts } = useQuery({
     queryKey: ['recent-quiz-attempts'],
     queryFn: async () => {
-      // First, let's get the raw quiz attempts data
-      const { data, error } = await supabase
-        .from('quiz_attempts')
-        .select(`
-          id,
-          quiz_id,
-          user_id,
-          started_at,
-          completed_at,
-          score,
-          max_score,
-          quizzes:quiz_id(title, course_id)
-        `)
-        .order('completed_at', { ascending: false })
-        .limit(20);
+      try {
+        // First, let's get all the profiles we might need in one query
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, name');
 
-      if (error) throw error;
-      
-      // Then, for each attempt, get the user's profile data separately
-      // This avoids the relation error between quiz_attempts and profiles
-      const enhancedData = await Promise.all(
-        data.map(async (attempt) => {
-          // Get profile for this user
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('name')
-            .eq('id', attempt.user_id)
-            .single();
-          
-          // If can't get profile, use a default name
-          const studentName = profileError ? 'Unknown' : profileData?.name || 'Unknown';
+        if (profilesError) {
+          console.error("Error fetching profiles:", profilesError);
+        }
+
+        // Create a map of user IDs to names for quick lookup
+        const profileMap = new Map();
+        if (profiles) {
+          profiles.forEach(profile => {
+            profileMap.set(profile.id, profile.name || 'Unknown');
+          });
+        }
+
+        // Then get the quiz attempts data
+        const { data, error } = await supabase
+          .from('quiz_attempts')
+          .select(`
+            id,
+            quiz_id,
+            user_id,
+            started_at,
+            completed_at,
+            score,
+            max_score,
+            quizzes:quiz_id(title, course_id)
+          `)
+          .order('completed_at', { ascending: false })
+          .limit(20);
+
+        if (error) {
+          console.error("Error fetching quiz attempts:", error);
+          throw error;
+        }
+        
+        // Map the data with student names from our profile map
+        const enhancedData = data.map(attempt => {
+          const studentName = profileMap.get(attempt.user_id) || 'Unknown';
           
           return {
             id: attempt.id,
@@ -52,10 +63,13 @@ export const useQuizCompletionStats = () => {
             maxScore: attempt.max_score || 0,
             month: new Date(attempt.completed_at || attempt.started_at).toLocaleString('default', { month: 'long', year: 'numeric' })
           };
-        })
-      );
+        });
 
-      return enhancedData;
+        return enhancedData;
+      } catch (error) {
+        console.error("Error in quiz completion stats:", error);
+        return [];
+      }
     }
   });
 
@@ -70,7 +84,12 @@ export const useQuizCompletionStats = () => {
   }, {} as Record<string, typeof recentAttempts>);
 
   // Add console log to debug what's happening with attemptsByMonth
-  console.log('Quiz Completion Stats:', { recentAttempts, attemptsByMonth, isEmpty: Object.keys(attemptsByMonth).length === 0 });
+  console.log('Quiz Completion Stats:', { 
+    recentAttempts, 
+    attemptsByMonth, 
+    isEmpty: Object.keys(attemptsByMonth).length === 0,
+    profileDataSample: recentAttempts.length > 0 ? recentAttempts[0].studentName : 'No attempts'
+  });
 
   return {
     recentAttempts,
