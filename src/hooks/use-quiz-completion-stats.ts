@@ -8,30 +8,14 @@ export const useQuizCompletionStats = () => {
     queryKey: ['recent-quiz-attempts'],
     queryFn: async () => {
       try {
-        // First, let's get all the profiles we might need in one query
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, name');
-
-        if (profilesError) {
-          console.error("Error fetching profiles:", profilesError);
-        }
-
-        // Create a map of user IDs to names for quick lookup
-        const profileMap = new Map();
-        if (profiles) {
-          profiles.forEach(profile => {
-            profileMap.set(profile.id, profile.name || 'Unknown');
-          });
-        }
-
-        // Then get the quiz attempts data
+        // Get the quiz attempts data with student_name column
         const { data, error } = await supabase
           .from('quiz_attempts')
           .select(`
             id,
             quiz_id,
             user_id,
+            student_name,
             started_at,
             completed_at,
             score,
@@ -45,16 +29,41 @@ export const useQuizCompletionStats = () => {
           console.error("Error fetching quiz attempts:", error);
           throw error;
         }
+
+        // Fallback: If student_name is missing, fetch from profiles
+        const userIds = data
+          .filter(attempt => !attempt.student_name)
+          .map(attempt => attempt.user_id);
+
+        let profileMap = new Map();
         
-        // Map the data with student names from our profile map
+        if (userIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', userIds);
+
+          if (profilesError) {
+            console.error("Error fetching profiles:", profilesError);
+          } else if (profiles) {
+            profiles.forEach(profile => {
+              profileMap.set(profile.id, profile.name || 'Unknown Student');
+            });
+          }
+        }
+        
+        // Map the data with student names
         const enhancedData = data.map(attempt => {
-          const studentName = profileMap.get(attempt.user_id) || 'Unknown';
+          // Use student_name from attempt if available, otherwise from profile map, finally fallback
+          const studentName = attempt.student_name || 
+                            profileMap.get(attempt.user_id) || 
+                            'Unknown Student';
           
           return {
             id: attempt.id,
             quizId: attempt.quiz_id,
             userId: attempt.user_id,
-            studentName: studentName,
+            studentName,
             quizTitle: attempt.quizzes?.title || 'Unknown Quiz',
             courseId: attempt.quizzes?.course_id,
             startedAt: attempt.started_at,

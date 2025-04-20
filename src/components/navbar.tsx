@@ -5,22 +5,29 @@ import { Menu, X, Sun, Moon, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { Logo } from "@/components/ui/logo";
 import { Button } from "@/components/ui/button";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const { user, isAdmin, logout } = useAuth();
   const location = useLocation();
+  const isMobile = useIsMobile();
   
   const toggleDarkMode = () => {
     document.documentElement.classList.toggle("dark");
     setIsDarkMode(!isDarkMode);
   };
   
+  // Fix for admin vs student courses route
+  const getCoursesPath = () => {
+    return isAdmin ? "/admin/courses" : "/courses";
+  };
+  
   const navLinks = [
     ...(user ? [
       { href: isAdmin ? "/admin/dashboard" : "/dashboard", label: "Dashboard" },
-      { href: "/courses", label: "Courses" },
+      { href: getCoursesPath(), label: "Courses" },
     ] : []),
     { href: "/about", label: "About" },
     { href: "/contact", label: "Contact" },

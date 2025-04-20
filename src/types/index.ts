@@ -45,6 +45,7 @@ export interface QuizAttempt {
   id: string;
   quizId: string;
   userId: string;
+  studentName: string; // Added student name field
   startedAt: string;
   completedAt?: string;
   score: number;

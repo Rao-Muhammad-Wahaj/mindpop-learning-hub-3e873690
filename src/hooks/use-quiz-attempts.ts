@@ -11,6 +11,7 @@ interface CompleteAttemptParams {
   quizId: string;
   courseId: string;
   score: number;
+  studentName?: string;
   answers: {
     questionId: string;
     answer: string;
@@ -45,6 +46,7 @@ export const useQuizAttempts = (userId?: string) => {
         id: attempt.id,
         quizId: attempt.quiz_id,
         userId: attempt.user_id,
+        studentName: attempt.student_name || 'Unknown Student',
         startedAt: attempt.started_at,
         completedAt: attempt.completed_at,
         score: attempt.score || 0,
@@ -76,6 +78,7 @@ export const useQuizAttempts = (userId?: string) => {
         .insert({
           quiz_id: attempt.quizId,
           user_id: attempt.userId,
+          student_name: attempt.studentName || 'Unknown Student',
           score: attempt.score,
           max_score: attempt.maxScore,
           answers: Array.isArray(attempt.answers) ? attempt.answers : []
@@ -97,13 +100,14 @@ export const useQuizAttempts = (userId?: string) => {
   });
 
   const completeAttemptMutation = useMutation({
-    mutationFn: async ({ id, score, answers, quizId, courseId }: CompleteAttemptParams) => {
+    mutationFn: async ({ id, score, answers, quizId, courseId, studentName }: CompleteAttemptParams) => {
       const { data: quizAttemptData, error: quizAttemptError } = await supabase
         .from('quiz_attempts')
         .update({
           completed_at: new Date().toISOString(),
           score,
           max_score: answers.length,
+          student_name: studentName,
           answers
         })
         .eq('id', id)

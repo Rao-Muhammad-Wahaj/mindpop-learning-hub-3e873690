@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuizzes } from '@/providers/QuizzesProvider';
@@ -14,6 +15,7 @@ import { QuestionNavigator } from '@/components/quiz-attempt/QuestionNavigator';
 import { ArrowLeft } from 'lucide-react';
 import { QuizStartCard } from '@/components/quiz-attempt/QuizStartCard';
 import { Question, Quiz } from '@/types';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function StudentQuizAttemptPage() {
   const { courseId, quizId } = useParams<{ courseId: string; quizId: string }>();
@@ -23,6 +25,7 @@ export default function StudentQuizAttemptPage() {
   const { questions, isLoading: questionsLoading } = useQuestions();
   const { hasAttemptedQuiz, createAttempt, completeAttempt } = useQuizAttempts();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [quizQuestions, setQuizQuestions] = useState<Question[]>([]);
@@ -76,7 +79,8 @@ export default function StudentQuizAttemptPage() {
         userId: user.id,
         score: 0,
         maxScore: quizQuestions.length,
-        answers: []
+        answers: [],
+        studentName: user.name || 'Unknown Student' // Include student name from auth context
       });
       
       if (attempt) {
@@ -113,7 +117,24 @@ export default function StudentQuizAttemptPage() {
       const safeQuestions = quizQuestions || [];
       const formattedAnswers = safeQuestions.map(question => {
         const userAnswer = answers[question.id] || '';
-        const isCorrect = userAnswer === question.correctAnswer.toString();
+        let isCorrect = false;
+        
+        // Fix for MCQ answer comparison
+        if (question.type === 'multiple_choice') {
+          // If correctAnswer is a number (index), convert it to a letter (A, B, C, D)
+          const correctAnswer = question.correctAnswer.toString();
+          if (/^[0-9]+$/.test(correctAnswer)) {
+            // Convert number to letter (0 -> A, 1 -> B, etc)
+            const correctLetter = String.fromCharCode(65 + parseInt(correctAnswer, 10));
+            isCorrect = userAnswer === correctLetter;
+          } else {
+            isCorrect = userAnswer === correctAnswer;
+          }
+        } else {
+          // For other question types (true/false, short_answer)
+          isCorrect = userAnswer === question.correctAnswer.toString();
+        }
+        
         if (isCorrect) score += question.points;
         
         return {
@@ -128,7 +149,8 @@ export default function StudentQuizAttemptPage() {
         quizId: quizId,
         courseId: courseId,
         score,
-        answers: formattedAnswers
+        answers: formattedAnswers,
+        studentName: user.name || 'Unknown Student' // Include student name during completion
       });
       
       navigate(`/courses/${courseId}`);
@@ -215,7 +237,7 @@ export default function StudentQuizAttemptPage() {
         />
       )}
 
-      <div className="mt-6">
+      <div className={`mt-6 ${isMobile ? 'overflow-x-auto pb-2' : ''}`}>
         <QuestionNavigator
           questions={quizQuestions}
           currentQuestionIndex={currentQuestionIndex}
@@ -228,7 +250,7 @@ export default function StudentQuizAttemptPage() {
         <Button
           onClick={handleSubmit}
           disabled={isSubmitting || Object.keys(answers).length !== quizQuestions.length}
-          className="w-full"
+          className={`${isMobile ? 'text-sm py-5' : ''} w-full`}
         >
           {isSubmitting ? (
             <>Submitting...</>
