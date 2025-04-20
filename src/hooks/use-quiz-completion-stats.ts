@@ -7,6 +7,7 @@ export const useQuizCompletionStats = () => {
   const { data: recentAttempts = [], isLoading: isLoadingAttempts } = useQuery({
     queryKey: ['recent-quiz-attempts'],
     queryFn: async () => {
+      // First, let's get the raw quiz attempts data
       const { data, error } = await supabase
         .from('quiz_attempts')
         .select(`
@@ -17,7 +18,6 @@ export const useQuizCompletionStats = () => {
           completed_at,
           score,
           max_score,
-          profiles:user_id(name),
           quizzes:quiz_id(title, course_id)
         `)
         .order('completed_at', { ascending: false })
@@ -25,21 +25,37 @@ export const useQuizCompletionStats = () => {
 
       if (error) throw error;
       
-      return data
-        .filter(attempt => attempt.quizzes && attempt.profiles)
-        .map(attempt => ({
-          id: attempt.id,
-          quizId: attempt.quiz_id,
-          userId: attempt.user_id,
-          studentName: attempt.profiles?.name || 'Unknown',
-          quizTitle: attempt.quizzes?.title || 'Unknown Quiz',
-          courseId: attempt.quizzes?.course_id,
-          startedAt: attempt.started_at,
-          completedAt: attempt.completed_at,
-          score: attempt.score || 0,
-          maxScore: attempt.max_score || 0,
-          month: new Date(attempt.completed_at || attempt.started_at).toLocaleString('default', { month: 'long', year: 'numeric' })
-        }));
+      // Then, for each attempt, get the user's profile data separately
+      // This avoids the relation error between quiz_attempts and profiles
+      const enhancedData = await Promise.all(
+        data.map(async (attempt) => {
+          // Get profile for this user
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('name')
+            .eq('id', attempt.user_id)
+            .single();
+          
+          // If can't get profile, use a default name
+          const studentName = profileError ? 'Unknown' : profileData?.name || 'Unknown';
+          
+          return {
+            id: attempt.id,
+            quizId: attempt.quiz_id,
+            userId: attempt.user_id,
+            studentName: studentName,
+            quizTitle: attempt.quizzes?.title || 'Unknown Quiz',
+            courseId: attempt.quizzes?.course_id,
+            startedAt: attempt.started_at,
+            completedAt: attempt.completed_at,
+            score: attempt.score || 0,
+            maxScore: attempt.max_score || 0,
+            month: new Date(attempt.completed_at || attempt.started_at).toLocaleString('default', { month: 'long', year: 'numeric' })
+          };
+        })
+      );
+
+      return enhancedData;
     }
   });
 
@@ -52,6 +68,9 @@ export const useQuizCompletionStats = () => {
     acc[month].push(attempt);
     return acc;
   }, {} as Record<string, typeof recentAttempts>);
+
+  // Add console log to debug what's happening with attemptsByMonth
+  console.log('Quiz Completion Stats:', { recentAttempts, attemptsByMonth, isEmpty: Object.keys(attemptsByMonth).length === 0 });
 
   return {
     recentAttempts,

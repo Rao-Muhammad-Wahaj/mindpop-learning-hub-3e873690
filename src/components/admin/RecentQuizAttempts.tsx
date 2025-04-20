@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
@@ -26,12 +26,25 @@ interface RecentQuizAttemptsProps {
 }
 
 export const RecentQuizAttempts = ({ attemptsByMonth, isLoading }: RecentQuizAttemptsProps) => {
-  const [activeMonth, setActiveMonth] = useState<string>(
-    Object.keys(attemptsByMonth).length > 0 ? Object.keys(attemptsByMonth)[0] : ''
-  );
+  const [activeMonth, setActiveMonth] = useState<string>('');
   const { toast } = useToast();
+  
+  // Update activeMonth when attemptsByMonth changes
+  useEffect(() => {
+    const months = Object.keys(attemptsByMonth);
+    if (months.length > 0 && (!activeMonth || !attemptsByMonth[activeMonth])) {
+      setActiveMonth(months[0]);
+    }
+  }, [attemptsByMonth, activeMonth]);
 
-  // If no data or loading, show placeholder
+  // Debug logging
+  console.log('RecentQuizAttempts props:', { 
+    hasMonths: Object.keys(attemptsByMonth).length > 0,
+    months: Object.keys(attemptsByMonth),
+    activeMonth
+  });
+
+  // If loading, show placeholder
   if (isLoading) {
     return (
       <Card>
@@ -46,6 +59,7 @@ export const RecentQuizAttempts = ({ attemptsByMonth, isLoading }: RecentQuizAtt
     );
   }
 
+  // If no data, show empty state
   if (Object.keys(attemptsByMonth).length === 0) {
     return (
       <Card>
@@ -68,6 +82,10 @@ export const RecentQuizAttempts = ({ attemptsByMonth, isLoading }: RecentQuizAtt
     );
   }
 
+  // Ensure activeMonth is set to a valid month
+  const validMonths = Object.keys(attemptsByMonth);
+  const currentActiveMonth = validMonths.includes(activeMonth) ? activeMonth : validMonths[0];
+
   return (
     <Card>
       <CardHeader>
@@ -77,9 +95,9 @@ export const RecentQuizAttempts = ({ attemptsByMonth, isLoading }: RecentQuizAtt
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue={activeMonth} onValueChange={setActiveMonth}>
+        <Tabs value={currentActiveMonth} onValueChange={setActiveMonth}>
           <TabsList className="mb-4 flex-wrap">
-            {Object.keys(attemptsByMonth).map((month) => (
+            {validMonths.map((month) => (
               <TabsTrigger key={month} value={month} className="flex items-center">
                 <Calendar className="w-4 h-4 mr-2" />
                 {month}
@@ -87,11 +105,11 @@ export const RecentQuizAttempts = ({ attemptsByMonth, isLoading }: RecentQuizAtt
             ))}
           </TabsList>
           
-          {Object.keys(attemptsByMonth).map((month) => (
+          {validMonths.map((month) => (
             <TabsContent key={month} value={month} className="space-y-4">
               <ScrollArea className="h-[350px]">
                 <div className="space-y-4">
-                  {attemptsByMonth[month].map((attempt) => (
+                  {attemptsByMonth[month]?.map((attempt) => (
                     <div 
                       key={attempt.id} 
                       className="p-4 border rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
