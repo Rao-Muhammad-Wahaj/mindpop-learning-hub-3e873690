@@ -8,10 +8,11 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
-import { QuizTimer } from '@/components/quiz-attempt/QuizTimer';
 import { QuizProgress } from '@/components/quiz-attempt/QuizProgress';
 import { QuestionCard } from '@/components/quiz-attempt/QuestionCard';
 import { QuestionNavigator } from '@/components/quiz-attempt/QuestionNavigator';
+import { AttemptControls } from '@/components/quiz-attempt/AttemptControls';
+import { QuizTimerDisplay } from '@/components/quiz-attempt/QuizTimerDisplay';
 import { ArrowLeft } from 'lucide-react';
 import { QuizStartCard } from '@/components/quiz-attempt/QuizStartCard';
 import { Question, Quiz } from '@/types';
@@ -213,7 +214,7 @@ export default function StudentQuizAttemptPage() {
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h1 className="text-2xl font-bold">{quiz?.title}</h1>
-          <QuizTimer timeLeft={timeLeft} onTimeUp={handleSubmit} />
+          <QuizTimerDisplay timeLeft={timeLeft} onTimeUp={handleSubmit} />
         </div>
         
         <QuizProgress
@@ -246,22 +247,12 @@ export default function StudentQuizAttemptPage() {
         />
       </div>
 
-      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <Button
-          onClick={handleSubmit}
-          disabled={isSubmitting || Object.keys(answers).length !== quizQuestions.length}
-          className={`${isMobile ? 'text-sm py-5' : ''} w-full`}
-        >
-          {isSubmitting ? (
-            <>Submitting...</>
-          ) : (
-            `Submit Quiz (${Object.keys(answers).length}/${quizQuestions.length} Answered)`
-          )}
-        </Button>
-        <p className="text-xs text-center mt-2 text-gray-500 dark:text-gray-400">
-          You cannot change your answers after submission
-        </p>
-      </div>
+      <AttemptControls
+        questionCount={quizQuestions.length}
+        answeredCount={Object.keys(answers).length}
+        isSubmitting={isSubmitting}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 }
