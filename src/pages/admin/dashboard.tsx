@@ -15,10 +15,8 @@ export default function AdminDashboard() {
     quizzesCount,
     completionRate,
     enrollments,
-    quizCompletionData,
-    quizPerformanceData,
-    attemptsByMonth,
-    isLoading
+    isLoading,
+    // chart & attempt data removed as not used
   } = useAdminDashboard();
 
   const containerVariants = {
@@ -67,15 +65,13 @@ export default function AdminDashboard() {
           isLoading={isLoading}
         />
 
+        {/* Show only the Course Enrollment chart */}
         <DashboardCharts
           enrollmentData={enrollments}
-          quizCompletionData={quizCompletionData}
-          quizPerformanceData={quizPerformanceData}
         />
 
         <div className="mt-8">
           <RecentQuizAttempts 
-            attemptsByMonth={attemptsByMonth} 
             isLoading={isLoading} 
           />
         </div>
